@@ -1,7 +1,32 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      {
+        source: "/",
+        has: [
+          {
+            type: "host",
+            value: "homefieldhub.com",
+          },
+        ],
+        destination: "/call",
+        permanent: false,
+      },
+      {
+        source: "/",
+        has: [
+          {
+            type: "host",
+            value: "www.homefieldhub.com",
+          },
+        ],
+        destination: "/call",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
