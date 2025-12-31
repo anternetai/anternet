@@ -64,23 +64,17 @@ export default function PreCallPage() {
           </div>
         </div>
 
-        {/* Video Embed */}
+        {/* Video */}
         <div className="aspect-video bg-zinc-900 rounded-xl overflow-hidden mb-8 border border-zinc-800">
-          {LOOM_VIDEO_ID === "YOUR_LOOM_VIDEO_ID_HERE" ? (
-            <div className="w-full h-full flex items-center justify-center text-zinc-500">
-              <div className="text-center">
-                <p className="text-lg mb-2">Video Placeholder</p>
-                <p className="text-sm">Replace LOOM_VIDEO_ID in code with your actual Loom video ID</p>
-              </div>
-            </div>
-          ) : (
-            <iframe
-              src={`https://www.loom.com/embed/${LOOM_VIDEO_ID}`}
-              frameBorder="0"
-              allowFullScreen
-              className="w-full h-full"
-            />
-          )}
+          <video
+            controls
+            className="w-full h-full"
+            poster=""
+            preload="metadata"
+          >
+            <source src="/vsl.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
         </div>
 
         {/* Action Section */}
