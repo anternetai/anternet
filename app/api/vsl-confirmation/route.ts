@@ -1,43 +1,25 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { type, ...data } = body;
 
-    // Save to Supabase
-    const { error } = await supabase.from("vsl_submissions").insert({
-      type, // 'watched_vsl' or 'new_lead'
+    // Log submission (visible in Vercel logs)
+    console.log("VSL Submission:", {
+      type,
       name: data.name,
       email: data.email,
-      business_name: data.businessName || null,
-      service_type: data.serviceType || null,
-      service_area: data.serviceArea || null,
-      current_leads: data.currentLeads || null,
-      phone: data.phone || null,
-      submitted_at: data.timestamp,
+      businessName: data.businessName,
+      serviceType: data.serviceType,
+      serviceArea: data.serviceArea,
+      currentLeads: data.currentLeads,
+      phone: data.phone,
+      timestamp: data.timestamp,
     });
 
-    if (error) {
-      console.error("Supabase error:", error);
-      // Still return success - we don't want to break the UX
-    }
-
-    // TODO: Add email notification via Resend when configured
-    // await resend.emails.send({
-    //   from: 'HomeField Hub <notifications@homefieldhub.com>',
-    //   to: 'your-email@example.com',
-    //   subject: type === 'watched_vsl'
-    //     ? `${data.name} watched the VSL`
-    //     : `New lead: ${data.name} from ${data.businessName}`,
-    //   html: `...`
-    // });
+    // TODO: Add Supabase when service role key is configured
+    // TODO: Add Resend email notification
 
     return NextResponse.json({ success: true });
   } catch (error) {
