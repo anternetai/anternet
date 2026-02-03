@@ -9,8 +9,21 @@ export async function POST(request: NextRequest) {
     const VAPI_ROOFING_ASSISTANT_ID = process.env.VAPI_ROOFING_ASSISTANT_ID || process.env.VAPI_ASSISTANT_ID
 
     if (!VAPI_API_KEY || !VAPI_ROOFING_ASSISTANT_ID) {
-      console.log('VAPI not configured yet for roofing')
-      return NextResponse.json({ success: false, message: 'VAPI not configured' }, { status: 200 })
+      console.log('VAPI not configured yet for roofing', {
+        hasApiKey: !!VAPI_API_KEY,
+        hasAssistantId: !!VAPI_ROOFING_ASSISTANT_ID,
+        apiKeyLength: VAPI_API_KEY?.length,
+        assistantIdLength: VAPI_ROOFING_ASSISTANT_ID?.length
+      })
+      return NextResponse.json({
+        success: false,
+        message: 'VAPI not configured',
+        debug: {
+          hasApiKey: !!VAPI_API_KEY,
+          hasAssistantId: !!VAPI_ROOFING_ASSISTANT_ID,
+          envKeys: Object.keys(process.env).filter(k => k.includes('VAPI'))
+        }
+      }, { status: 200 })
     }
 
     // Format phone number (remove non-digits, add +1 if needed)
