@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useForm } from "react-hook-form"
 import { z } from "zod/v4"
@@ -21,7 +20,6 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const router = useRouter()
   const supabase = createClient()
   const [serverError, setServerError] = useState("")
 
@@ -45,8 +43,8 @@ export default function LoginPage() {
       return
     }
 
-    router.push("/portal/dashboard")
-    router.refresh()
+    // Full page reload so the server gets fresh cookies
+    window.location.href = "/portal/dashboard"
   }
 
   return (
