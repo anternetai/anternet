@@ -20,10 +20,12 @@ export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded"
 export interface Client {
   id: string
   legal_business_name: string
-  owner_name: string
-  email: string
-  phone: string
-  service_type: string
+  first_name: string
+  last_name: string
+  business_email_for_leads: string
+  email_for_notifications: string
+  business_phone: string
+  service_type: string | null
   auth_user_id: string | null
   role: "client" | "admin"
   created_at: string

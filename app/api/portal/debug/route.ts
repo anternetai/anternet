@@ -13,7 +13,7 @@ export async function GET() {
   // Try to get client record
   const { data: client, error: clientError } = await supabase
     .from("agency_clients")
-    .select("id, legal_business_name, owner_name, email, auth_user_id, role")
+    .select("id, legal_business_name, first_name, last_name, email_for_notifications, auth_user_id, role")
     .eq("auth_user_id", user.id)
     .single()
 

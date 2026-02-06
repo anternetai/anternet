@@ -18,8 +18,8 @@ export function PortalShell({ children, user }: PortalShellProps) {
       <SidebarProvider>
         <SidebarNav
           user={{
-            name: user.owner_name || user.legal_business_name,
-            email: user.email,
+            name: `${user.first_name} ${user.last_name}`.trim() || user.legal_business_name,
+            email: user.email_for_notifications || user.business_email_for_leads,
             role: user.role,
           }}
         />

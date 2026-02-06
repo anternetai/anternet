@@ -73,7 +73,7 @@ export function AdminDashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base">{client.legal_business_name}</CardTitle>
               <p className="text-xs text-muted-foreground">
-                {client.owner_name} &middot; {client.service_type}
+                {client.first_name} {client.last_name} &middot; {client.service_type}
               </p>
             </CardHeader>
             <CardContent>
