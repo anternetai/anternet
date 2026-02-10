@@ -39,54 +39,32 @@ export default function AcceptInvitePage() {
   })
 
   useEffect(() => {
-    async function processInvite() {
-      // Sign out any existing session first so the invite tokens take over
-      await supabase.auth.signOut()
-
-      // The hash fragment contains access_token, refresh_token, type=invite
-      // Supabase client auto-detects these on page load via detectSessionInUrl
-      // We need to wait a tick for it to process
-      const hash = window.location.hash
-      if (!hash || !hash.includes("access_token")) {
-        setServerError("Invalid or expired invite link. Please ask your admin to resend the invitation.")
-        setStatus("error")
-        return
-      }
-
-      // Give Supabase client time to process the hash tokens
-      // Listen for the session to be established
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        (event, session) => {
-          if (session?.user) {
-            setEmail(session.user.email ?? "")
-            setStatus("ready")
-            subscription.unsubscribe()
-          }
+    // Listen for auth state changes — Supabase client auto-detects
+    // the hash fragment (#access_token=...) and establishes a session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          setEmail(session.user.email ?? "")
+          setStatus("ready")
         }
-      )
-
-      // Also check if session is already set (race condition)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        setEmail(session.user.email ?? "")
-        setStatus("ready")
-        subscription.unsubscribe()
       }
+    )
 
-      // Timeout after 5 seconds
-      setTimeout(() => {
-        setStatus((prev) => {
-          if (prev === "loading") {
-            setServerError("Could not process invite link. It may have expired.")
-            return "error"
-          }
-          return prev
-        })
-        subscription.unsubscribe()
-      }, 5000)
+    // Timeout — if no session is established after 5 seconds, show error
+    const timer = setTimeout(() => {
+      setStatus((prev) => {
+        if (prev === "loading") {
+          setServerError("Invalid or expired invite link. Please ask your admin to resend the invitation.")
+          return "error"
+        }
+        return prev
+      })
+    }, 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timer)
     }
-
-    processInvite()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onSubmit(data: PasswordForm) {
