@@ -43,7 +43,7 @@ export function BillingTable({ clientId }: BillingTableProps) {
   const { data: payments, isLoading } = useSWR(
     ["payments", clientId],
     fetchPayments,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   )
 
   const runningTotal = (payments ?? [])

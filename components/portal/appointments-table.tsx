@@ -81,7 +81,7 @@ export function AppointmentsTable({ clientId }: AppointmentsTableProps) {
   const { data: appointments, isLoading, mutate } = useSWR(
     ["appointments", clientId, tab],
     fetchAppointments,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   )
 
   const [confirmAction, setConfirmAction] = useState<{

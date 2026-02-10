@@ -30,6 +30,7 @@ async function fetchAdminData() {
 export function AdminDashboard() {
   const { data: clients, isLoading, mutate } = useSWR("admin-clients", fetchAdminData, {
     revalidateOnFocus: false,
+    shouldRetryOnError: false,
   })
   const [deleteTarget, setDeleteTarget] = useState<AdminClientMetrics | null>(null)
   const [deleting, setDeleting] = useState(false)

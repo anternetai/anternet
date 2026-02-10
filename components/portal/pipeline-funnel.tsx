@@ -47,7 +47,7 @@ export function PipelineFunnel({ clientId, from, to }: PipelineFunnelProps) {
   const { data: stages, isLoading } = useSWR(
     ["pipeline", clientId, from, to],
     fetchPipeline,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   )
 
   if (isLoading) {

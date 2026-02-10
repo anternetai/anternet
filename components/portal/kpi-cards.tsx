@@ -121,13 +121,13 @@ export function KpiCards({ clientId, from, to }: KpiCardsProps) {
   const { data, isLoading, mutate } = useSWR(
     ["kpis", clientId, from, to],
     fetchKpis,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   )
 
   const { data: chartData, isLoading: chartLoading } = useSWR(
     ["chart", clientId, from, to],
     fetchChartData,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   )
 
   const cards = [

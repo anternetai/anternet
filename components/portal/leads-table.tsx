@@ -77,7 +77,7 @@ export function LeadsTable({ clientId }: LeadsTableProps) {
   const { data, isLoading } = useSWR(
     ["leads", clientId, status, search, page],
     fetchLeads,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   )
 
   const updateParam = useCallback(

@@ -77,7 +77,7 @@ export function ConversationList({ clientId }: ConversationListProps) {
   const { data: threads, isLoading } = useSWR(
     ["threads", clientId],
     fetchThreads,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   )
 
   const selected = threads?.find((t) => t.lead_id === selectedLeadId)
