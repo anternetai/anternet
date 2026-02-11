@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { AlertTriangle, Users, TrendingDown, Trash2 } from "lucide-react"
 import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -85,7 +86,7 @@ export function AdminDashboard() {
         const lowShowRate = client.appointment_count > 0 && client.show_rate < 50
 
         return (
-          <Card key={client.id}>
+          <Card key={client.id} className="transition-shadow hover:shadow-md">
             {(noLeadsAlert || lowShowRate) && (
               <div className="flex gap-1 px-6 pt-4">
                 {noLeadsAlert && (
@@ -104,12 +105,12 @@ export function AdminDashboard() {
             )}
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="text-base">{client.legal_business_name}</CardTitle>
+                <Link href={`/portal/admin/clients/${client.id}`} className="group flex-1">
+                  <CardTitle className="text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{client.legal_business_name}</CardTitle>
                   <p className="text-xs text-muted-foreground">
                     {client.first_name} {client.last_name} &middot; {client.service_type}
                   </p>
-                </div>
+                </Link>
                 <Button
                   variant="ghost"
                   size="icon"

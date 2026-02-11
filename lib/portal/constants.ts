@@ -1,4 +1,4 @@
-import type { LeadStatus, AppointmentStatus, PaymentStatus } from "./types"
+import type { LeadStatus, AppointmentStatus, PaymentStatus, ClientPipelineStage } from "./types"
 
 export const LEAD_STATUS_CONFIG: Record<
   LeadStatus,
@@ -43,3 +43,74 @@ export const PIPELINE_STAGES: LeadStatus[] = [
   "closed_won",
   "closed_lost",
 ]
+
+// Client lifecycle pipeline (admin CRM)
+export const CLIENT_PIPELINE_STAGES: ClientPipelineStage[] = [
+  "demo",
+  "onboarding",
+  "setup",
+  "launch",
+  "active",
+]
+
+export const CLIENT_PIPELINE_CONFIG: Record<
+  ClientPipelineStage,
+  { label: string; color: string; nextAction: string }
+> = {
+  demo: {
+    label: "Demo Call",
+    color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+    nextAction: "Schedule onboarding call",
+  },
+  onboarding: {
+    label: "Onboarding",
+    color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
+    nextAction: "Complete account setup",
+  },
+  setup: {
+    label: "Setup",
+    color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+    nextAction: "Schedule launch call",
+  },
+  launch: {
+    label: "Launch",
+    color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+    nextAction: "Go live with ads",
+  },
+  active: {
+    label: "Active",
+    color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+    nextAction: "Monitor performance",
+  },
+}
+
+// Default tasks auto-created for each pipeline stage
+export const PIPELINE_STAGE_TASKS: Record<ClientPipelineStage, string[]> = {
+  demo: ["Schedule demo call", "Send intro email"],
+  onboarding: [
+    "Schedule onboarding call",
+    "Get calendar access",
+    "Send service agreement",
+    "Collect business info",
+  ],
+  setup: [
+    "Set up Facebook page access",
+    "Create ad account",
+    "Build ad creatives",
+    "Configure lead form",
+  ],
+  launch: [
+    "Schedule launch call",
+    "Review ad setup with client",
+    "Launch ads",
+  ],
+  active: ["Monitor ad performance", "Weekly check-in"],
+}
+
+export const CALL_OUTCOME_CONFIG: Record<string, { label: string; color: string }> = {
+  answered: { label: "Answered", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" },
+  no_answer: { label: "No Answer", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" },
+  voicemail: { label: "Voicemail", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
+  callback: { label: "Callback", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" },
+  not_interested: { label: "Not Interested", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" },
+}

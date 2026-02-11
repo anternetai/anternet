@@ -115,4 +115,69 @@ export interface AdminClientMetrics extends Client {
   show_rate: number
   total_charged: number
   last_lead_at: string | null
+  pipeline_stage: ClientPipelineStage
+  pipeline_stage_changed_at: string | null
+  next_call_at: string | null
+  next_call_type: string | null
+}
+
+// CRM Pipeline stages for client lifecycle
+export type ClientPipelineStage = "demo" | "onboarding" | "setup" | "launch" | "active"
+
+export interface ClientDetail extends Client {
+  pipeline_stage: ClientPipelineStage
+  pipeline_stage_changed_at: string | null
+  demo_call_at: string | null
+  onboarding_call_at: string | null
+  launch_call_at: string | null
+  next_call_at: string | null
+  next_call_type: string | null
+  slack_channel_id: string | null
+  cell_phone_for_notifications: string
+  street_address: string | null
+  city: string | null
+  state: string | null
+  postal_code: string | null
+  website_url: string | null
+  stripe_customer_id: string | null
+  facebook_page_id: string | null
+  ad_account_id: string | null
+  calendar_id: string | null
+  differentiator: string | null
+  offer: string | null
+}
+
+export interface ClientTask {
+  id: string
+  client_id: string
+  title: string
+  completed: boolean
+  completed_at: string | null
+  due_at: string | null
+  pipeline_stage: ClientPipelineStage | null
+  sort_order: number
+  created_at: string
+}
+
+export interface ClientActivity {
+  id: string
+  client_id: string
+  type: "slack_message" | "email_sent" | "call" | "stage_change" | "task_completed" | "note" | "lead_in" | "appointment" | "payment"
+  title: string
+  detail: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface CrmProspect {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  notes: string | null
+  call_outcome: "answered" | "no_answer" | "voicemail" | "callback" | "not_interested" | null
+  follow_up_at: string | null
+  last_called_at: string | null
+  import_batch: string | null
+  created_at: string
 }

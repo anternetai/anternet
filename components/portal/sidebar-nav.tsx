@@ -10,6 +10,7 @@ import {
   CalendarCheck,
   CreditCard,
   Shield,
+  UserPlus,
 } from "lucide-react"
 import {
   Sidebar,
@@ -37,6 +38,7 @@ const navItems = [
 
 const adminItems = [
   { label: "Admin", href: "/portal/admin", icon: Shield },
+  { label: "Prospects", href: "/portal/admin/prospects", icon: UserPlus },
 ]
 
 interface SidebarNavProps {
