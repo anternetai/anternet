@@ -31,12 +31,12 @@ async function fetchMe(): Promise<{ client: Client | null; teamMember: TeamMembe
 interface PortalAuthProviderProps {
   children: ReactNode
   initialUser: Client | null
-  initialTeamMemberRole?: string
+  initialTeamMember?: TeamMember | null
 }
 
-export function PortalAuthProvider({ children, initialUser, initialTeamMemberRole }: PortalAuthProviderProps) {
+export function PortalAuthProvider({ children, initialUser, initialTeamMember }: PortalAuthProviderProps) {
   const [user, setUser] = useState<Client | null>(initialUser)
-  const [teamMember, setTeamMember] = useState<TeamMember | null>(null)
+  const [teamMember, setTeamMember] = useState<TeamMember | null>(initialTeamMember ?? null)
   const [loading, setLoading] = useState(!initialUser)
   const supabase = createClient()
 

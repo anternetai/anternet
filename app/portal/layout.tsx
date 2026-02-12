@@ -2,7 +2,7 @@ import { ThemeProvider } from "next-themes"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
 import { PortalShell } from "@/components/portal/portal-shell"
-import type { Client } from "@/lib/portal/types"
+import type { Client, TeamMember } from "@/lib/portal/types"
 
 export const metadata = {
   title: "Portal | HomeField Hub",
@@ -19,7 +19,7 @@ export default async function PortalLayout({
   } = await supabase.auth.getUser()
 
   let client: Client | null = null
-  let teamMemberRole: string | undefined
+  let initialTeamMember: TeamMember | null = null
   if (authUser) {
     // Try direct match (primary client)
     const { data } = await supabase
@@ -37,13 +37,13 @@ export default async function PortalLayout({
 
         const { data: tm } = await admin
           .from("client_team_members")
-          .select("client_id, role")
+          .select("*")
           .eq("auth_user_id", authUser.id)
           .limit(1)
           .single()
 
         if (tm) {
-          teamMemberRole = tm.role
+          initialTeamMember = tm as TeamMember
           const { data: parentClient } = await admin
             .from("agency_clients")
             .select("*")
@@ -58,7 +58,7 @@ export default async function PortalLayout({
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       {client ? (
-        <PortalShell user={client} teamMemberRole={teamMemberRole}>{children}</PortalShell>
+        <PortalShell user={client} initialTeamMember={initialTeamMember}>{children}</PortalShell>
       ) : (
         children
       )}

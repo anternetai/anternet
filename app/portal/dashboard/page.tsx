@@ -22,12 +22,13 @@ function getGreeting(firstName: string) {
 }
 
 function DashboardContent() {
-  const { user } = use(PortalAuthContext)
+  const { user, teamMember } = use(PortalAuthContext)
   const searchParams = useSearchParams()
 
+  const firstName = teamMember?.first_name || user?.first_name || ""
   const { greeting, subtitle } = useMemo(
-    () => getGreeting(user?.first_name ?? ""),
-    [user?.first_name]
+    () => getGreeting(firstName),
+    [firstName]
   )
 
   if (!user) return null

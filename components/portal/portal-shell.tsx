@@ -5,23 +5,28 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { SidebarNav } from "./sidebar-nav"
 import { PortalHeader } from "./portal-header"
 import { PortalAuthProvider } from "./portal-auth-provider"
-import type { Client } from "@/lib/portal/types"
+import type { Client, TeamMember } from "@/lib/portal/types"
 
 interface PortalShellProps {
   children: ReactNode
   user: Client
-  teamMemberRole?: string
+  initialTeamMember?: TeamMember | null
 }
 
-export function PortalShell({ children, user, teamMemberRole }: PortalShellProps) {
+export function PortalShell({ children, user, initialTeamMember }: PortalShellProps) {
+  const displayName = initialTeamMember
+    ? `${initialTeamMember.first_name ?? ""} ${initialTeamMember.last_name ?? ""}`.trim() || initialTeamMember.email
+    : `${user.first_name} ${user.last_name}`.trim() || user.legal_business_name
+  const displayEmail = initialTeamMember?.email || user.email_for_notifications || user.business_email_for_leads
+
   return (
-    <PortalAuthProvider initialUser={user} initialTeamMemberRole={teamMemberRole}>
+    <PortalAuthProvider initialUser={user} initialTeamMember={initialTeamMember ?? null}>
       <SidebarProvider>
         <SidebarNav
           user={{
-            name: `${user.first_name} ${user.last_name}`.trim() || user.legal_business_name,
-            email: user.email_for_notifications || user.business_email_for_leads,
-            role: teamMemberRole || user.role,
+            name: displayName,
+            email: displayEmail,
+            role: initialTeamMember?.role || user.role,
           }}
         />
         <SidebarInset>
