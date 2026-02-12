@@ -10,17 +10,18 @@ import type { Client } from "@/lib/portal/types"
 interface PortalShellProps {
   children: ReactNode
   user: Client
+  teamMemberRole?: string
 }
 
-export function PortalShell({ children, user }: PortalShellProps) {
+export function PortalShell({ children, user, teamMemberRole }: PortalShellProps) {
   return (
-    <PortalAuthProvider initialUser={user}>
+    <PortalAuthProvider initialUser={user} initialTeamMemberRole={teamMemberRole}>
       <SidebarProvider>
         <SidebarNav
           user={{
             name: `${user.first_name} ${user.last_name}`.trim() || user.legal_business_name,
             email: user.email_for_notifications || user.business_email_for_leads,
-            role: user.role,
+            role: teamMemberRole || user.role,
           }}
         />
         <SidebarInset>

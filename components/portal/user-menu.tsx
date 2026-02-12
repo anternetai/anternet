@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { LogOut, Settings, User } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -20,7 +19,6 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ name, email }: UserMenuProps) {
-  const router = useRouter()
   const supabase = createClient()
 
   const initials = name
@@ -32,7 +30,7 @@ export function UserMenu({ name, email }: UserMenuProps) {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
-    router.push("/portal/login")
+    window.location.href = "/portal/login"
   }
 
   return (

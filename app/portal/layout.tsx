@@ -1,4 +1,5 @@
 import { ThemeProvider } from "next-themes"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
 import { PortalShell } from "@/components/portal/portal-shell"
 import type { Client } from "@/lib/portal/types"
@@ -18,6 +19,7 @@ export default async function PortalLayout({
   } = await supabase.auth.getUser()
 
   let client: Client | null = null
+  let teamMemberRole: string | undefined
   if (authUser) {
     // Try direct match (primary client)
     const { data } = await supabase
@@ -27,22 +29,28 @@ export default async function PortalLayout({
       .single()
     client = data as Client | null
 
-    // Fallback: check if user is a team member
+    // Fallback: use service role to bypass RLS for team member lookup
     if (!client) {
-      const { data: tm } = await supabase
-        .from("client_team_members")
-        .select("client_id")
-        .eq("auth_user_id", authUser.id)
-        .limit(1)
-        .single()
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (serviceRoleKey) {
+        const admin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey)
 
-      if (tm) {
-        const { data: parentClient } = await supabase
-          .from("agency_clients")
-          .select("*")
-          .eq("id", tm.client_id)
+        const { data: tm } = await admin
+          .from("client_team_members")
+          .select("client_id, role")
+          .eq("auth_user_id", authUser.id)
+          .limit(1)
           .single()
-        client = parentClient as Client | null
+
+        if (tm) {
+          teamMemberRole = tm.role
+          const { data: parentClient } = await admin
+            .from("agency_clients")
+            .select("*")
+            .eq("id", tm.client_id)
+            .single()
+          client = parentClient as Client | null
+        }
       }
     }
   }
@@ -50,7 +58,7 @@ export default async function PortalLayout({
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       {client ? (
-        <PortalShell user={client}>{children}</PortalShell>
+        <PortalShell user={client} teamMemberRole={teamMemberRole}>{children}</PortalShell>
       ) : (
         children
       )}
