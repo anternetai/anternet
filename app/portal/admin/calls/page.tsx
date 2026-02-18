@@ -3,7 +3,9 @@
 import { use, Suspense, useCallback } from "react"
 import { redirect } from "next/navigation"
 import useSWR from "swr"
-import { Phone, Zap, BarChart3, History, PhoneCall, PieChart } from "lucide-react"
+import {
+  Phone, Zap, BarChart3, History, PhoneCall, PieChart, Settings,
+} from "lucide-react"
 import { PortalAuthContext } from "@/components/portal/portal-auth-provider"
 import { CallDashboard } from "@/components/portal/calls/call-dashboard"
 import { QuickLog } from "@/components/portal/calls/quick-log"
@@ -12,6 +14,7 @@ import { DailyLogDialog } from "@/components/portal/calls/daily-log-dialog"
 import { PowerDialer } from "@/components/portal/dialer/power-dialer"
 import { DialerStats } from "@/components/portal/dialer/dialer-stats"
 import { CSVImport } from "@/components/portal/dialer/csv-import"
+import { PhoneNumbers } from "@/components/portal/dialer/phone-numbers"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { CallDashboardData } from "@/app/api/portal/calls/dashboard/route"
@@ -103,7 +106,7 @@ function CallsContent() {
 
       {/* Tabs — Dialer is first/default */}
       <Tabs defaultValue="dialer">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="dialer" className="gap-1.5">
             <PhoneCall className="size-3.5" />
             <span className="hidden sm:inline">Dialer</span>
@@ -123,6 +126,10 @@ function CallsContent() {
           <TabsTrigger value="history" className="gap-1.5">
             <History className="size-3.5" />
             <span className="hidden sm:inline">History</span>
+          </TabsTrigger>
+          <TabsTrigger value="numbers" className="gap-1.5">
+            <Phone className="size-3.5" />
+            <span className="hidden sm:inline">Numbers</span>
           </TabsTrigger>
         </TabsList>
 
@@ -157,6 +164,10 @@ function CallsContent() {
             dailyHistory={data?.dailyHistory || []}
             isLoading={isLoading}
           />
+        </TabsContent>
+
+        <TabsContent value="numbers">
+          <PhoneNumbers />
         </TabsContent>
       </Tabs>
     </div>

@@ -59,6 +59,34 @@ export interface DialerQueueResponse {
   currentHourBlock: string | null
   callbacksDue: DialerLead[]
   breakdownByTimezone: Record<DialerTimezone, number>
+  selectedNumber: SelectedNumber | null
+}
+
+export interface SelectedNumber {
+  id: string
+  phone_number: string
+  friendly_name: string | null
+  area_code: string | null
+  calls_this_hour: number
+  max_calls_per_hour: number
+}
+
+export interface PhonePoolNumber {
+  id: string
+  created_at: string
+  phone_number: string
+  friendly_name: string | null
+  area_code: string | null
+  state: string | null
+  twilio_sid: string | null
+  status: "active" | "cooling" | "retired"
+  calls_today: number
+  calls_this_hour: number
+  last_used_at: string | null
+  total_calls: number
+  spam_reports: number
+  max_calls_per_hour: number
+  cooldown_minutes: number
 }
 
 export interface ImportResult {
@@ -126,3 +154,27 @@ export function getTimezoneForHour(etHour: number): DialerTimezone | null {
 export function getScheduleForHour(etHour: number) {
   return TIMEZONE_SCHEDULE.find((s) => s.etHour === etHour) ?? null
 }
+
+// Call transcript types
+export interface CallTranscript {
+  id: string
+  created_at: string
+  lead_id: string | null
+  call_log_id: string | null
+  phone_number: string | null
+  duration_seconds: number | null
+  raw_transcript: string | null
+  ai_summary: string | null
+  ai_disposition: DialerOutcome | null
+  ai_notes: string | null
+}
+
+export interface AISummaryResponse {
+  summary: string
+  disposition: DialerOutcome
+  notes: string
+  keyPoints: string[]
+}
+
+// Call state for in-browser dialer
+export type CallState = "idle" | "connecting" | "ringing" | "connected" | "disconnected"

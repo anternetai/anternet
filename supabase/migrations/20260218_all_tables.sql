@@ -1,6 +1,6 @@
 -- ============================================
--- HomeField Hub — All New Tables Migration
--- Run this in Supabase SQL Editor
+-- HomeField Hub — Complete Migration
+-- Run this in Supabase SQL Editor (safe to run multiple times)
 -- ============================================
 
 -- 1. Call Logs (individual call tracking)
@@ -42,54 +42,75 @@ create table if not exists dialer_leads (
   id uuid default gen_random_uuid() primary key,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
-  
-  -- Lead info
   state text,
   business_name text,
   phone_number text unique,
   owner_name text,
   first_name text,
   website text,
-  timezone text, -- ET, CT, MT, PT
-  
-  -- Call tracking
+  timezone text,
   status text default 'queued',
   attempt_count int default 0,
   max_attempts int default 5,
   last_called_at timestamptz,
   next_call_at timestamptz,
   last_outcome text,
-  
-  -- Results
   demo_booked boolean default false,
   demo_date timestamptz,
   not_interested boolean default false,
   wrong_number boolean default false,
-  
-  -- AI transcription
   last_transcript text,
   last_ai_summary text,
-  
-  -- Notes
   notes text,
-  
-  -- Source
   import_batch text,
   sheet_row_id text
 );
 
--- 4. Call Recordings / Transcripts
+-- 4. Dialer Call History (per-attempt tracking)
+create table if not exists dialer_call_history (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  lead_id uuid references dialer_leads(id) on delete cascade,
+  attempt_number int not null,
+  outcome text not null,
+  notes text,
+  demo_date timestamptz,
+  callback_at timestamptz,
+  call_date date default current_date,
+  call_time time default localtime
+);
+
+-- 5. Call Transcripts (AI-powered)
 create table if not exists call_transcripts (
   id uuid default gen_random_uuid() primary key,
   created_at timestamptz default now(),
-  lead_id uuid references dialer_leads(id),
-  call_log_id uuid references call_logs(id),
+  lead_id uuid references dialer_leads(id) on delete set null,
+  call_log_id uuid references call_logs(id) on delete set null,
   phone_number text,
   duration_seconds int,
   raw_transcript text,
   ai_summary text,
   ai_disposition text,
   ai_notes text
+);
+
+-- 6. Phone Number Pool (rotation to avoid spam)
+create table if not exists dialer_phone_numbers (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  phone_number text unique not null,
+  friendly_name text,
+  area_code text,
+  state text,
+  twilio_sid text,
+  status text default 'active',
+  calls_today int default 0,
+  calls_this_hour int default 0,
+  last_used_at timestamptz,
+  total_calls int default 0,
+  spam_reports int default 0,
+  max_calls_per_hour int default 20,
+  cooldown_minutes int default 30
 );
 
 -- Indexes
@@ -101,14 +122,23 @@ create index if not exists idx_dialer_leads_status on dialer_leads(status);
 create index if not exists idx_dialer_leads_timezone on dialer_leads(timezone);
 create index if not exists idx_dialer_leads_next_call on dialer_leads(next_call_at);
 create index if not exists idx_dialer_leads_phone on dialer_leads(phone_number);
+create index if not exists idx_dialer_leads_last_called on dialer_leads(last_called_at);
+create index if not exists idx_dialer_leads_status_tz on dialer_leads(status, timezone);
+create index if not exists idx_dialer_call_history_lead on dialer_call_history(lead_id);
+create index if not exists idx_dialer_call_history_date on dialer_call_history(call_date desc);
 create index if not exists idx_call_transcripts_lead on call_transcripts(lead_id);
+create index if not exists idx_call_transcripts_created on call_transcripts(created_at desc);
+create index if not exists idx_dialer_phone_numbers_status on dialer_phone_numbers(status);
 
--- RLS (allow all for authenticated — admin only feature)
+-- RLS
 alter table call_logs enable row level security;
 alter table daily_call_stats enable row level security;
 alter table dialer_leads enable row level security;
+alter table dialer_call_history enable row level security;
 alter table call_transcripts enable row level security;
+alter table dialer_phone_numbers enable row level security;
 
+-- Policies (idempotent)
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'call_logs' AND policyname = 'allow_all_call_logs') THEN
     create policy "allow_all_call_logs" on call_logs for all using (true) with check (true);
@@ -119,7 +149,31 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'dialer_leads' AND policyname = 'allow_all_dialer_leads') THEN
     create policy "allow_all_dialer_leads" on dialer_leads for all using (true) with check (true);
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'dialer_call_history' AND policyname = 'allow_all_call_history') THEN
+    create policy "allow_all_call_history" on dialer_call_history for all using (true) with check (true);
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'call_transcripts' AND policyname = 'allow_all_transcripts') THEN
     create policy "allow_all_transcripts" on call_transcripts for all using (true) with check (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'dialer_phone_numbers' AND policyname = 'allow_all_phone_numbers') THEN
+    create policy "allow_all_phone_numbers" on dialer_phone_numbers for all using (true) with check (true);
+  END IF;
+END $$;
+
+-- Auto-update trigger for dialer_leads
+create or replace function update_dialer_leads_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'dialer_leads_updated_at') THEN
+    create trigger dialer_leads_updated_at
+      before update on dialer_leads
+      for each row
+      execute function update_dialer_leads_updated_at();
   END IF;
 END $$;

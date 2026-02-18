@@ -19,12 +19,13 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { leadId, outcome, notes, demoDate, callbackAt } = body as {
+  const { leadId, outcome, notes, demoDate, callbackAt, callerNumberId } = body as {
     leadId: string
     outcome: DialerOutcome
     notes?: string
     demoDate?: string
     callbackAt?: string
+    callerNumberId?: string
   }
 
   if (!leadId || !outcome) {
@@ -59,17 +60,15 @@ export async function POST(req: NextRequest) {
     case "no_answer":
     case "voicemail":
     case "gatekeeper": {
-      // Re-queue after 2-3 days (randomize slightly)
-      const daysDelay = 2 + Math.random() // 2-3 days
+      const daysDelay = 2 + Math.random()
       const next = new Date(Date.now() + daysDelay * 86400000)
       nextCallAt = next.toISOString()
       newStatus = newAttemptCount >= lead.max_attempts ? "archived" : "queued"
       break
     }
     case "conversation": {
-      // Conversation happened but no specific result — keep in queue for follow-up
       newStatus = newAttemptCount >= lead.max_attempts ? "archived" : "queued"
-      const next = new Date(Date.now() + 3 * 86400000) // 3 days
+      const next = new Date(Date.now() + 3 * 86400000)
       nextCallAt = next.toISOString()
       break
     }
@@ -105,9 +104,7 @@ export async function POST(req: NextRequest) {
     minute: "2-digit",
   })
   const noteEntry = notes ? `[${dateStr}] ${outcome}: ${notes}` : `[${dateStr}] ${outcome}`
-  const updatedNotes = existingNotes
-    ? `${existingNotes}\n${noteEntry}`
-    : noteEntry
+  const updatedNotes = existingNotes ? `${existingNotes}\n${noteEntry}` : noteEntry
 
   // 3. Update the lead
   const { error: updateError } = await admin
@@ -131,7 +128,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. Log call history
-  const { error: historyError } = await admin.from("dialer_call_history").insert({
+  await admin.from("dialer_call_history").insert({
     lead_id: leadId,
     attempt_number: newAttemptCount,
     outcome,
@@ -140,11 +137,7 @@ export async function POST(req: NextRequest) {
     callback_at: callbackAt || null,
   })
 
-  if (historyError) {
-    console.error("Failed to log call history:", historyError)
-  }
-
-  // 5. Also log to existing call_logs table to keep dashboard stats working
+  // 5. Also log to existing call_logs table for dashboard stats
   const contactMade = ["conversation", "demo_booked", "callback", "not_interested"].includes(outcome)
   const isConversation = ["conversation", "demo_booked"].includes(outcome)
 
@@ -185,6 +178,48 @@ export async function POST(req: NextRequest) {
       conversations: isConversation ? 1 : 0,
       demos_booked: outcome === "demo_booked" ? 1 : 0,
     })
+  }
+
+  // 7. Update phone number rotation counters
+  if (callerNumberId) {
+    try {
+      const { data: phoneNum } = await admin
+        .from("dialer_phone_numbers")
+        .select("*")
+        .eq("id", callerNumberId)
+        .single()
+
+      if (phoneNum) {
+        const newHourly = (phoneNum.calls_this_hour || 0) + 1
+        const newDaily = (phoneNum.calls_today || 0) + 1
+        const newTotal = (phoneNum.total_calls || 0) + 1
+        const maxPerHour = phoneNum.max_calls_per_hour || 20
+
+        // Determine if this number needs to cool down
+        const newPhoneStatus = newHourly >= maxPerHour ? "cooling" : phoneNum.status
+
+        await admin
+          .from("dialer_phone_numbers")
+          .update({
+            calls_this_hour: newHourly,
+            calls_today: newDaily,
+            total_calls: newTotal,
+            last_used_at: now,
+            status: newPhoneStatus,
+          })
+          .eq("id", callerNumberId)
+
+        // Auto-retire if too many spam reports
+        if ((phoneNum.spam_reports || 0) > 2 && phoneNum.status !== "retired") {
+          await admin
+            .from("dialer_phone_numbers")
+            .update({ status: "retired" })
+            .eq("id", callerNumberId)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update phone number counters:", err)
+    }
   }
 
   return NextResponse.json({ success: true, newStatus, attemptCount: newAttemptCount })

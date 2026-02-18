@@ -81,6 +81,57 @@ create policy "Allow all for authenticated users" on dialer_leads
 create policy "Allow all for authenticated users" on dialer_call_history
   for all using (true) with check (true);
 
+-- Call transcripts (AI-powered transcription & summarization)
+create table if not exists call_transcripts (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  lead_id uuid references dialer_leads(id) on delete set null,
+  call_log_id uuid references call_logs(id) on delete set null,
+  phone_number text,
+  duration_seconds int,
+  raw_transcript text,
+  ai_summary text,
+  ai_disposition text,
+  ai_notes text
+);
+
+create index if not exists idx_call_transcripts_lead on call_transcripts(lead_id);
+create index if not exists idx_call_transcripts_created on call_transcripts(created_at desc);
+
+alter table call_transcripts enable row level security;
+
+create policy "Allow all for authenticated users" on call_transcripts
+  for all using (true) with check (true);
+
+-- Phone number pool (rotation to prevent spam flagging)
+create table if not exists dialer_phone_numbers (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  phone_number text unique not null,
+  friendly_name text,
+  area_code text,
+  state text,
+  twilio_sid text,
+  status text default 'active' check (status in ('active', 'cooling', 'retired', 'flagged')),
+  calls_today int default 0,
+  calls_this_hour int default 0,
+  last_used_at timestamptz,
+  total_calls int default 0,
+  spam_reports int default 0,
+  max_calls_per_hour int default 20,
+  cooldown_minutes int default 30
+);
+
+create index if not exists idx_dialer_phone_numbers_status on dialer_phone_numbers(status);
+
+alter table dialer_phone_numbers enable row level security;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'dialer_phone_numbers' AND policyname = 'allow_all_phone_numbers') THEN
+    create policy "allow_all_phone_numbers" on dialer_phone_numbers for all using (true) with check (true);
+  END IF;
+END $$;
+
 -- Auto-update updated_at trigger
 create or replace function update_dialer_leads_updated_at()
 returns trigger as $$

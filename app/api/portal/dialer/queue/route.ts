@@ -107,6 +107,42 @@ export async function GET(req: NextRequest) {
     breakdownByTimezone[tz] = count || 0
   }
 
+  // 7. Select best outbound number from pool
+  let selectedNumber: any = null
+  try {
+    const { data: availableNumbers } = await admin
+      .from("dialer_phone_numbers")
+      .select("*")
+      .eq("status", "active")
+      .order("calls_this_hour", { ascending: true })
+
+    if (availableNumbers && availableNumbers.length > 0) {
+      // Filter out numbers at max capacity
+      const eligible = availableNumbers.filter(
+        (n: any) => n.calls_this_hour < (n.max_calls_per_hour || 20)
+      )
+
+      if (eligible.length > 0) {
+        // Prefer area code matching current lead's state
+        const currentLeadState = leads.length > 0 ? leads[0].state : null
+        if (currentLeadState) {
+          const stateMatch = eligible.find(
+            (n: any) => n.state && n.state.toUpperCase() === currentLeadState.toUpperCase()
+          )
+          if (stateMatch) {
+            selectedNumber = stateMatch
+          }
+        }
+        // Fallback: pick number with fewest calls this hour
+        if (!selectedNumber) {
+          selectedNumber = eligible[0]
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Phone number rotation error:", err)
+  }
+
   return NextResponse.json({
     leads,
     totalToday: totalToday || 0,
@@ -115,5 +151,15 @@ export async function GET(req: NextRequest) {
     currentHourBlock: schedule?.label || null,
     callbacksDue: (callbacksDueToday || []) as DialerLead[],
     breakdownByTimezone,
+    selectedNumber: selectedNumber
+      ? {
+          id: selectedNumber.id,
+          phone_number: selectedNumber.phone_number,
+          friendly_name: selectedNumber.friendly_name,
+          area_code: selectedNumber.area_code,
+          calls_this_hour: selectedNumber.calls_this_hour,
+          max_calls_per_hour: selectedNumber.max_calls_per_hour,
+        }
+      : null,
   })
 }
