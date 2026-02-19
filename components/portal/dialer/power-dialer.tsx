@@ -183,8 +183,10 @@ export function PowerDialer() {
     try {
       setCallState("connecting"); setCallDuration(0); setIsMuted(false)
       fullTranscriptRef.current = ""; setLiveTranscript(""); setInterimText(""); setAiSummary(null)
-      const params: Record<string, string> = { To: currentLead.phone_number }
-      if (selectedNumber?.phone_number) params.CallerId = selectedNumber.phone_number
+      // Ensure E.164 format for Twilio
+      const toNumber = toE164(currentLead.phone_number)
+      const params: Record<string, string> = { To: toNumber }
+      if (selectedNumber?.phone_number) params.CallerId = toE164(selectedNumber.phone_number)
       const call = await twilioDevice.connect({ params })
       call.on("ringing", () => setCallState("ringing"))
       call.on("accept", () => setCallState("connected"))
@@ -394,7 +396,7 @@ export function PowerDialer() {
                   <Phone className="size-6" /><span>DIAL {formatPhone(currentLead.phone_number)}</span>
                 </button>
               ) : (
-                <a href={`tel:${currentLead.phone_number}`} className="flex w-full items-center justify-center gap-3 rounded-xl bg-emerald-600 px-6 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-emerald-500 active:scale-[0.98]">
+                <a href={`tel:${toE164(currentLead.phone_number || "")}`} className="flex w-full items-center justify-center gap-3 rounded-xl bg-emerald-600 px-6 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-emerald-500 active:scale-[0.98]">
                   <Phone className="size-6" /><span>DIAL {formatPhone(currentLead.phone_number)}</span>
                 </a>
               )
@@ -511,6 +513,14 @@ export function PowerDialer() {
       )}
     </div>
   )
+}
+
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, "")
+  if (phone.startsWith("+")) return phone
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
+  return `+${digits}`
 }
 
 function formatPhone(phone: string | null): string {

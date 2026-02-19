@@ -4,11 +4,13 @@ import { NextRequest, NextResponse } from "next/server"
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
-    const to = formData.get("To") as string
-    const callerId =
+    const rawTo = formData.get("To") as string
+    const to = rawTo ? toE164(rawTo) : null
+    const rawCallerId =
       (formData.get("CallerId") as string) ||
       process.env.TWILIO_PHONE_NUMBER ||
       "+19806896919"
+    const callerId = toE164(rawCallerId)
 
     if (!to) {
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -46,11 +48,13 @@ export async function POST(req: NextRequest) {
 // Also handle GET (some Twilio configurations may send GET)
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
-  const to = url.searchParams.get("To")
-  const callerId =
+  const rawTo = url.searchParams.get("To")
+  const to = rawTo ? toE164(rawTo) : null
+  const rawCallerId =
     url.searchParams.get("CallerId") ||
     process.env.TWILIO_PHONE_NUMBER ||
     "+19806896919"
+  const callerId = toE164(rawCallerId)
 
   if (!to) {
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -81,4 +85,13 @@ function escapeXml(str: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;")
+}
+
+// Ensure phone number is in E.164 format for Twilio
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, "")
+  if (phone.startsWith("+")) return phone
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
+  return `+${digits}`
 }
