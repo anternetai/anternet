@@ -891,9 +891,37 @@ export function CallCockpit() {
         {/* Header */}
         {headerBar}
 
+        {/* ── Call Controls Bar (TOP — always visible) ──────────────────────── */}
+        <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
+          {/* Power Dialer — main call button */}
+          <div className="flex-1">
+            {powerDialerBlock}
+          </div>
+
+          <Separator orientation="vertical" className="h-auto self-stretch" />
+
+          {/* Record toggle */}
+          <div className="shrink-0">
+            {callBlock}
+          </div>
+
+          <Separator orientation="vertical" className="h-auto self-stretch" />
+
+          {/* Skip button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={skipLead}
+            className="gap-1 text-muted-foreground shrink-0"
+          >
+            <SkipForward className="size-3.5" />
+            Skip
+          </Button>
+        </div>
+
         {/* Main 2-column area */}
         {!powerMode ? (
-          <div className="grid grid-cols-2 gap-3" style={{ minHeight: "calc(100vh - 320px)" }}>
+          <div className="grid grid-cols-2 gap-3" style={{ minHeight: "calc(100vh - 420px)" }}>
             {/* LEFT: Script Teleprompter */}
             <div className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
               <Suspense
@@ -922,7 +950,7 @@ export function CallCockpit() {
           </div>
         ) : (
           /* Power Mode: script + objections side by side, no chrome */
-          <div className="grid grid-cols-2 gap-3" style={{ height: "calc(100vh - 240px)" }}>
+          <div className="grid grid-cols-2 gap-3" style={{ height: "calc(100vh - 300px)" }}>
             <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
               <Suspense fallback={null}>
                 <ScriptTeleprompter />
@@ -936,7 +964,7 @@ export function CallCockpit() {
           </div>
         )}
 
-        {/* Bottom Bar */}
+        {/* Bottom Bar: Notes + Disposition */}
         {!powerMode && (
           <div className="flex flex-wrap items-start gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
             {/* Notes */}
@@ -950,45 +978,17 @@ export function CallCockpit() {
 
             <Separator orientation="vertical" className="hidden h-auto self-stretch lg:block" />
 
-            {/* Power Dialer */}
-            <div className="w-auto shrink-0">
-              {powerDialerBlock}
-            </div>
-
-            <Separator orientation="vertical" className="hidden h-auto self-stretch lg:block" />
-
             {/* Disposition */}
             <div className="min-w-[280px] flex-1">
               {dispositionBlock}
             </div>
-
-            {/* Skip + recording indicator */}
-            <div className="flex w-full items-center justify-between border-t pt-2">
-              <div className="flex items-center gap-3">
-                {callBlock}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={skipLead}
-                className="gap-1 text-muted-foreground"
-              >
-                <SkipForward className="size-3.5" />
-                Skip
-              </Button>
-            </div>
           </div>
         )}
 
-        {/* Power mode bottom: just call + disposition */}
+        {/* Power mode bottom: just disposition */}
         {powerMode && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
-            <div className="flex-1">{callBlock}</div>
             <div className="flex-1">{dispositionBlock}</div>
-            <Button variant="ghost" size="sm" onClick={skipLead} className="gap-1 text-muted-foreground shrink-0">
-              <SkipForward className="size-3.5" />
-              Skip
-            </Button>
           </div>
         )}
       </div>
@@ -1006,11 +1006,11 @@ export function CallCockpit() {
           </div>
         </div>
 
-        {/* Call button */}
-        {callBlock}
-
-        {/* Power Dialer */}
+        {/* Power Dialer — call button at top */}
         {powerDialerBlock}
+
+        {/* Record toggle */}
+        {callBlock}
 
         {/* Script - collapsed */}
         <MobileSection label="📋 Script" defaultOpen={false}>
