@@ -176,6 +176,11 @@ export async function POST() {
         continue
       }
 
+      if (!ownerName) {
+        skipped++
+        continue
+      }
+
       const timezone = state ? getTimezoneFromState(state) : null
 
       // Determine existing status from sheet outcome
