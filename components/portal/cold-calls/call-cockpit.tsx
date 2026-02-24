@@ -820,13 +820,6 @@ export function CallCockpit() {
   const callBlock = (
     <div className="space-y-2">
       <div className="flex items-stretch gap-2">
-        <a
-          href={`tel:${toE164(currentLead.phone_number || "")}`}
-          className="flex flex-1 items-center justify-center gap-3 rounded-xl bg-emerald-600 px-4 py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-emerald-500 active:scale-[0.98]"
-        >
-          <Phone className="size-5" />
-          <span>CALL {formatPhone(currentLead.phone_number)}</span>
-        </a>
         {/* Record toggle */}
         <button
           type="button"
