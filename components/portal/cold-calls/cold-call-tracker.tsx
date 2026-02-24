@@ -23,7 +23,11 @@ import {
   PhoneCall,
   TrendingUp,
   Target,
-  Zap,
+  Mic,
+  MicOff,
+  Radio,
+  Calendar,
+  Sparkles,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -31,9 +35,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { DialerLead, DialerOutcome, DialerQueueResponse } from "@/lib/dialer/types"
+import type { AIAnalysisResult, RecordingState } from "@/lib/dialer/ai-types"
+import { AIAnalysisPanel } from "./ai-analysis-panel"
+import { FollowUpList } from "./follow-up-list"
 
-// Simplified outcomes for cold calling
+// ─── Outcome Config ───────────────────────────────────────────────────────────
+
 type ColdCallOutcome = "no_answer" | "voicemail" | "conversation" | "wrong_number" | "not_interested" | "demo_booked"
 
 const OUTCOME_CONFIG: Record<
@@ -84,6 +93,33 @@ const OUTCOME_CONFIG: Record<
   },
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, "")
+  if (phone.startsWith("+")) return phone
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
+  return `+${digits}`
+}
+
+function formatPhone(phone: string | null): string {
+  if (!phone) return "—"
+  const digits = phone.replace(/\D/g, "")
+  if (digits.length === 10)
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  if (digits.length === 11 && digits.startsWith("1"))
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  return phone
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000)
+  const m = Math.floor(totalSeconds / 60)
+  const s = totalSeconds % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
+
 interface SyncResult {
   success: boolean
   totalRows: number
@@ -98,6 +134,82 @@ async function fetchQueue(): Promise<DialerQueueResponse> {
   if (!res.ok) throw new Error("Failed to fetch queue")
   return res.json()
 }
+
+// ─── Recording Hook ───────────────────────────────────────────────────────────
+
+function useCallRecording() {
+  const [recordingState, setRecordingState] = useState<RecordingState>("idle")
+  const [durationMs, setDurationMs] = useState(0)
+  const mediaRecorder = useRef<MediaRecorder | null>(null)
+  const chunks = useRef<Blob[]>([])
+  const startTime = useRef<number>(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg",
+      })
+      chunks.current = []
+      startTime.current = Date.now()
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.current.push(e.data)
+      }
+
+      recorder.start(1000) // 1s chunks
+      mediaRecorder.current = recorder
+      setRecordingState("recording")
+      setDurationMs(0)
+
+      timerRef.current = setInterval(() => {
+        setDurationMs(Date.now() - startTime.current)
+      }, 1000)
+    } catch (err) {
+      console.error("Microphone access denied:", err)
+      setRecordingState("error")
+    }
+  }, [])
+
+  const stopRecording = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+
+      if (!mediaRecorder.current || mediaRecorder.current.state === "inactive") {
+        setRecordingState("idle")
+        resolve(null)
+        return
+      }
+
+      mediaRecorder.current.onstop = () => {
+        const blob = new Blob(chunks.current, {
+          type: mediaRecorder.current?.mimeType || "audio/webm",
+        })
+        // Stop all tracks
+        mediaRecorder.current?.stream.getTracks().forEach((t) => t.stop())
+        setRecordingState("stopped")
+        resolve(blob)
+      }
+
+      mediaRecorder.current.stop()
+    })
+  }, [])
+
+  const reset = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    setRecordingState("idle")
+    setDurationMs(0)
+    chunks.current = []
+  }, [])
+
+  return { recordingState, durationMs, startRecording, stopRecording, reset }
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function ColdCallTracker() {
   const {
@@ -120,10 +232,21 @@ export function ColdCallTracker() {
   const [selectedOutcome, setSelectedOutcome] = useState<ColdCallOutcome | null>(null)
   const [sessionDials, setSessionDials] = useState(0)
   const [sessionDemos, setSessionDemos] = useState(0)
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null)
+  const [pendingDispositionLead, setPendingDispositionLead] = useState<DialerLead | null>(null)
   const notesRef = useRef<HTMLTextAreaElement>(null)
+
+  const { recordingState, durationMs, startRecording, stopRecording, reset: resetRecording } =
+    useCallRecording()
+
+  const isRecording = recordingState === "recording"
 
   const leads = queue?.leads || []
   const currentLead = leads[currentIndex] || null
+
+  // All leads with a next_call_at for follow-up list
+  const allLeads = queue?.leads || []
 
   useEffect(() => {
     if (leads.length > 0 && currentIndex >= leads.length) setCurrentIndex(0)
@@ -135,23 +258,23 @@ export function ColdCallTracker() {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return
       if (e.ctrlKey || e.metaKey) {
         const outcomes: ColdCallOutcome[] = [
-          "no_answer",
-          "voicemail",
-          "conversation",
-          "wrong_number",
-          "not_interested",
-          "demo_booked",
+          "no_answer", "voicemail", "conversation", "wrong_number", "not_interested", "demo_booked",
         ]
         const idx = parseInt(e.key) - 1
         if (idx >= 0 && idx < outcomes.length) {
           e.preventDefault()
           handleDisposition(outcomes[idx])
         }
+        // ⌘R = toggle recording
+        if (e.key === "r") {
+          e.preventDefault()
+          isRecording ? stopRecording() : startRecording()
+        }
       }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [currentLead, saving, showNoteField, selectedOutcome, notes, demoDate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentLead, saving, showNoteField, selectedOutcome, notes, demoDate, isRecording]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetForm = useCallback(() => {
     setNotes("")
@@ -160,6 +283,86 @@ export function ColdCallTracker() {
     setShowDemoDatePicker(false)
     setSelectedOutcome(null)
   }, [])
+
+  // ─── Submit disposition to backend ────────────────────────────────────────
+
+  const submitDisposition = useCallback(
+    async (
+      lead: DialerLead,
+      outcome: ColdCallOutcome,
+      notesText: string,
+      demoDateStr: string
+    ) => {
+      const res = await fetch("/api/portal/dialer/disposition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: lead.id,
+          outcome: outcome as DialerOutcome,
+          notes: notesText || undefined,
+          demoDate: demoDateStr || undefined,
+        }),
+      })
+      if (!res.ok) throw new Error("Failed to save disposition")
+    },
+    []
+  )
+
+  // ─── Stop recording → upload → AI analysis ───────────────────────────────
+
+  const runAIAnalysis = useCallback(
+    async (lead: DialerLead, blob: Blob | null) => {
+      setAiResult({ panelState: "loading" })
+      setAiPanelOpen(true)
+
+      try {
+        // If we have a blob, use Web Speech API transcript (or skip — just call summarize with empty)
+        // In production this would upload to Whisper; for now we call /api/portal/dialer/summarize
+        // with whatever transcript we have from browser speech recognition or empty string.
+        const transcript = "" // placeholder — actual STT would fill this
+
+        const res = await fetch("/api/portal/dialer/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transcript,
+            businessName: lead.business_name || "",
+            leadContext: lead.notes || "",
+            leadId: lead.id,
+            phoneNumber: lead.phone_number || "",
+            durationSeconds: blob ? Math.floor(durationMs / 1000) : undefined,
+          }),
+        })
+
+        if (!res.ok) throw new Error("AI analysis failed")
+        const data = await res.json()
+
+        setAiResult({
+          panelState: "ready",
+          suggestedDisposition: (data.disposition as DialerOutcome) || undefined,
+          suggestedNotes: data.notes || undefined,
+          suggestedFollowUpDate: data.followUpDate || undefined,
+          summary: data.summary || undefined,
+          keyPoints: data.keyPoints || [],
+          objections: data.objections || [],
+          nextSteps: data.nextSteps || [],
+          grades: data.grades,
+          coachingTips: data.coachingTips,
+          rawTranscript: transcript || undefined,
+        })
+      } catch (err) {
+        console.error("AI analysis error:", err)
+        setAiResult({
+          panelState: "ready",
+          suggestedDisposition: undefined,
+          summary: "AI analysis unavailable. Please fill in manually.",
+        })
+      }
+    },
+    [durationMs]
+  )
+
+  // ─── Handle disposition ───────────────────────────────────────────────────
 
   const handleDisposition = useCallback(
     async (outcome: ColdCallOutcome) => {
@@ -181,22 +384,18 @@ export function ColdCallTracker() {
 
       setSaving(true)
       try {
-        const res = await fetch("/api/portal/dialer/disposition", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            leadId: currentLead.id,
-            outcome: outcome as DialerOutcome,
-            notes: notes || undefined,
-            demoDate: demoDate || undefined,
-          }),
-        })
+        // Stop recording if active
+        let blob: Blob | null = null
+        if (isRecording) {
+          blob = await stopRecording()
+        }
 
-        if (!res.ok) throw new Error("Failed to save disposition")
+        const leadSnapshot = currentLead
 
         setSessionDials((c) => c + 1)
         if (outcome === "demo_booked") setSessionDemos((c) => c + 1)
         resetForm()
+        resetRecording()
 
         // Auto-advance
         if (currentIndex < leads.length - 1) {
@@ -205,6 +404,16 @@ export function ColdCallTracker() {
           await mutate()
           setCurrentIndex(0)
         }
+
+        // If recording was on, run AI analysis instead of immediately saving
+        if (blob || isRecording) {
+          setPendingDispositionLead(leadSnapshot)
+          await runAIAnalysis(leadSnapshot, blob)
+          // Disposition will be saved after AI panel accept/override
+        } else {
+          // No recording — save directly
+          await submitDisposition(leadSnapshot, outcome, notes, demoDate)
+        }
       } catch (e) {
         console.error("Disposition error:", e)
       } finally {
@@ -212,16 +421,9 @@ export function ColdCallTracker() {
       }
     },
     [
-      currentLead,
-      saving,
-      showNoteField,
-      showDemoDatePicker,
-      notes,
-      demoDate,
-      currentIndex,
-      leads.length,
-      mutate,
-      resetForm,
+      currentLead, saving, showNoteField, showDemoDatePicker, isRecording,
+      notes, demoDate, currentIndex, leads.length, mutate, resetForm,
+      resetRecording, stopRecording, runAIAnalysis, submitDisposition,
     ]
   )
 
@@ -243,23 +445,44 @@ export function ColdCallTracker() {
       const res = await fetch("/api/portal/cold-calls/sync", { method: "POST" })
       const data = await res.json()
       setSyncResult(data)
-      if (data.success) {
-        await mutate()
-      }
-    } catch (e) {
-      console.error("Sync error:", e)
-      setSyncResult({
-        success: false,
-        totalRows: 0,
-        imported: 0,
-        duplicates: 0,
-        skipped: 0,
-        errors: ["Failed to sync"],
-      })
+      if (data.success) await mutate()
+    } catch {
+      setSyncResult({ success: false, totalRows: 0, imported: 0, duplicates: 0, skipped: 0, errors: ["Failed to sync"] })
     } finally {
       setSyncing(false)
     }
   }, [mutate])
+
+  // AI panel accept/override handlers
+  const handleAIAcceptAll = useCallback(
+    async (data: { disposition: DialerOutcome; notes: string; followUpDate?: string }) => {
+      if (!pendingDispositionLead) return
+      await submitDisposition(
+        pendingDispositionLead,
+        data.disposition as ColdCallOutcome,
+        data.notes,
+        data.followUpDate || ""
+      )
+      setAiResult((prev) => prev ? { ...prev, panelState: "accepted" } : null)
+      setPendingDispositionLead(null)
+    },
+    [pendingDispositionLead, submitDisposition]
+  )
+
+  const handleAIOverride = useCallback(
+    async (data: { disposition: DialerOutcome; notes: string; followUpDate?: string }) => {
+      if (!pendingDispositionLead) return
+      await submitDisposition(
+        pendingDispositionLead,
+        data.disposition as ColdCallOutcome,
+        data.notes,
+        data.followUpDate || ""
+      )
+      setAiResult((prev) => prev ? { ...prev, panelState: "overridden" } : null)
+      setPendingDispositionLead(null)
+    },
+    [pendingDispositionLead, submitDisposition]
+  )
 
   // Stats
   const totalInQueue = queue?.totalToday || 0
@@ -285,31 +508,15 @@ export function ColdCallTracker() {
             {totalInQueue.toLocaleString()} leads in queue
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={syncing}
-          className="gap-2"
-        >
-          {syncing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <FileDown className="size-4" />
-          )}
+        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="gap-2">
+          {syncing ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
           {syncing ? "Syncing..." : "Sync from Google Sheet"}
         </Button>
       </div>
 
       {/* Sync Result Banner */}
       {syncResult && (
-        <Card
-          className={
-            syncResult.success
-              ? "border-emerald-500/20 bg-emerald-500/5"
-              : "border-red-500/20 bg-red-500/5"
-          }
-        >
+        <Card className={syncResult.success ? "border-emerald-500/20 bg-emerald-500/5" : "border-red-500/20 bg-red-500/5"}>
           <CardContent className="py-3">
             <div className="flex items-center justify-between">
               <p className="text-sm">
@@ -318,12 +525,7 @@ export function ColdCallTracker() {
                   ? `Synced ${syncResult.imported} new leads (${syncResult.duplicates} existing, ${syncResult.skipped} skipped)`
                   : `Sync failed: ${syncResult.errors[0]}`}
               </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSyncResult(null)}
-                className="h-6 px-2 text-xs"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setSyncResult(null)} className="h-6 px-2 text-xs">
                 Dismiss
               </Button>
             </div>
@@ -387,10 +589,7 @@ export function ColdCallTracker() {
             <span>{totalInQueue} remaining</span>
           </div>
           <Progress
-            value={Math.min(
-              (completedToday / Math.max(completedToday + totalInQueue, 1)) * 100,
-              100
-            )}
+            value={Math.min((completedToday / Math.max(completedToday + totalInQueue, 1)) * 100, 100)}
             className="h-2"
           />
         </div>
@@ -429,11 +628,7 @@ export function ColdCallTracker() {
               </div>
               {currentLead.website && (
                 <a
-                  href={
-                    currentLead.website.startsWith("http")
-                      ? currentLead.website
-                      : `https://${currentLead.website}`
-                  }
+                  href={currentLead.website.startsWith("http") ? currentLead.website : `https://${currentLead.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-400"
@@ -445,21 +640,66 @@ export function ColdCallTracker() {
               )}
             </div>
 
-            {/* Big Call Button */}
-            <a
-              href={`tel:${toE164(currentLead.phone_number || "")}`}
-              className="flex w-full items-center justify-center gap-3 rounded-xl bg-emerald-600 px-6 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-emerald-500 active:scale-[0.98]"
-            >
-              <Phone className="size-6" />
-              <span>CALL {formatPhone(currentLead.phone_number)}</span>
-            </a>
+            {/* Call Button + Recording Toggle */}
+            <div className="flex items-stretch gap-2">
+              <a
+                href={`tel:${toE164(currentLead.phone_number || "")}`}
+                className="flex flex-1 items-center justify-center gap-3 rounded-xl bg-emerald-600 px-6 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-emerald-500 active:scale-[0.98]"
+              >
+                <Phone className="size-6" />
+                <span>CALL {formatPhone(currentLead.phone_number)}</span>
+              </a>
+
+              {/* Record Toggle */}
+              <button
+                type="button"
+                onClick={() => isRecording ? stopRecording() : startRecording()}
+                className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-4 py-3 text-xs font-medium transition-all ${
+                  isRecording
+                    ? "border-red-500 bg-red-500/10 text-red-400"
+                    : recordingState === "error"
+                    ? "border-red-500/30 bg-red-500/5 text-red-400/60"
+                    : "border-muted-foreground/20 text-muted-foreground hover:border-orange-500/50 hover:bg-orange-500/5 hover:text-orange-400"
+                }`}
+                title={isRecording ? "Stop recording (⌘R)" : "Start recording (⌘R)"}
+              >
+                {isRecording ? (
+                  <>
+                    <div className="relative flex items-center gap-1">
+                      <span className="absolute -left-2 -top-1 size-2 animate-pulse rounded-full bg-red-500" />
+                      <Radio className="size-4" />
+                    </div>
+                    <span className="tabular-nums">{formatDuration(durationMs)}</span>
+                  </>
+                ) : recordingState === "error" ? (
+                  <>
+                    <MicOff className="size-4" />
+                    <span>No mic</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic className="size-4" />
+                    <span>Record</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Recording active indicator */}
+            {isRecording && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2">
+                <span className="size-2 animate-pulse rounded-full bg-red-500" />
+                <span className="text-xs text-red-400">
+                  Recording — AI will analyze this call when you disposition
+                </span>
+                <Sparkles className="ml-auto size-3 text-orange-400" />
+              </div>
+            )}
 
             {/* Previous Notes */}
             {currentLead.notes && (
               <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="mb-1 text-xs font-medium text-muted-foreground">
-                  Previous Notes
-                </p>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">Previous Notes</p>
                 <p className="whitespace-pre-wrap text-sm">{currentLead.notes}</p>
               </div>
             )}
@@ -486,178 +726,28 @@ export function ColdCallTracker() {
             {/* Disposition Buttons */}
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">
-                What happened? (⌘1-6)
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {(
-                  Object.entries(OUTCOME_CONFIG) as [
-                    ColdCallOutcome,
-                    (typeof OUTCOME_CONFIG)[ColdCallOutcome],
-                  ][]
-                ).map(([key, config]) => {
-                  const Icon = config.icon
-                  return (
-                    <Button
-                      key={key}
-                      variant="outline"
-                      className={`h-auto flex-col gap-1 py-3 ${config.bgColor} ${
-                        selectedOutcome === key
-                          ? "ring-2 ring-orange-500 ring-offset-2 ring-offset-background"
-                          : ""
-                      }`}
-                      disabled={saving}
-                      onClick={() => handleDisposition(key)}
-                    >
-                      <Icon className={`size-5 ${config.color}`} />
-                      <span className="text-xs font-medium">{config.label}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        ⌘{config.shortcut}
-                      </span>
-                    </Button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Note / Demo Date Fields */}
-            {showNoteField && (
-              <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-                <Textarea
-                  ref={notesRef}
-                  placeholder="Add notes about this call..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="resize-none"
-                />
-                {showDemoDatePicker && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Demo date:
-                    </label>
-                    <Input
-                      type="datetime-local"
-                      value={demoDate}
-                      onChange={(e) => setDemoDate(e.target.value)}
-                      className="h-8 w-auto text-sm"
-                    />
-                  </div>
+                What happened?{" "}
+                <span className="opacity-60">(⌘1–6)</span>
+                {isRecording && (
+                  <span className="ml-2 text-orange-400">
+                    <Sparkles className="inline size-2.5" /> AI will analyze after you disposition
+                  </span>
                 )}
-                <Button
-                  onClick={confirmOutcome}
-                  disabled={saving}
-                  className="w-full gap-2"
-                >
-                  {saving ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <ChevronRight className="size-4" />
-                  )}
-                  Confirm &amp; Next
-                </Button>
-              </div>
-            )}
-
-            {/* Skip */}
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={skipLead}
-                className="gap-1 text-muted-foreground"
-              >
-                <SkipForward className="size-3.5" />
-                Skip
-              </Button>
+              </p>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Phone className="mb-4 size-12 text-muted-foreground/40" />
-            <h3 className="text-lg font-semibold">No leads in queue</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {totalInQueue === 0
-                ? "Sync leads from Google Sheets to get started."
-                : "All leads for this time block have been called. Nice work! 🎉"}
-            </p>
-            {totalInQueue === 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSync}
-                disabled={syncing}
-                className="mt-4 gap-2"
-              >
-                {syncing ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="size-4" />
-                )}
-                Sync from Google Sheet
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Up Next Queue */}
-      {leads.length > 1 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Up Next ({leads.length - 1 - currentIndex} remaining)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              {leads.slice(currentIndex + 1, currentIndex + 8).map((lead, i) => (
-                <div
-                  key={lead.id}
-                  className="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
-                >
-                  <span className="w-5 text-center text-xs text-muted-foreground">
-                    {i + 1}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {lead.business_name || lead.phone_number || "Unknown"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {lead.first_name || lead.owner_name || ""}
-                  </span>
-                  <Badge variant="outline" className="shrink-0 text-[10px]">
-                    {lead.state || "—"}
-                  </Badge>
-                  {lead.attempt_count > 0 && (
-                    <span className="text-[10px] tabular-nums text-muted-foreground">
-                      #{lead.attempt_count}
-                    </span>
-                  )}
-                </div>
-              ))}
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <Phone className="size-12 text-muted-foreground/30" />
+            <div>
+              <p className="font-medium">Queue Empty</p>
+              <p className="text-sm text-muted-foreground">No leads available for the current timezone window.</p>
             </div>
           </CardContent>
         </Card>
       )}
     </div>
   )
-}
-
-function toE164(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  if (phone.startsWith("+")) return phone
-  if (digits.length === 10) return `+1${digits}`
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
-  return `+${digits}`
-}
-
-function formatPhone(phone: string | null): string {
-  if (!phone) return "—"
-  const digits = phone.replace(/\D/g, "")
-  if (digits.length === 10)
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
-  if (digits.length === 11 && digits.startsWith("1"))
-    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
-  return phone
 }
