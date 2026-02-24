@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const status = url.searchParams.get("status")
   const direction = url.searchParams.get("direction")
+  const callControlId = url.searchParams.get("callControlId")
   const from = url.searchParams.get("from")
   const to = url.searchParams.get("to")
   const search = url.searchParams.get("search")
@@ -46,6 +47,7 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1)
 
+  if (callControlId) query = query.eq("telnyx_call_control_id", callControlId)
   if (status) query = query.eq("status", status)
   if (direction) query = query.eq("direction", direction)
   if (from) query = query.gte("created_at", `${from}T00:00:00`)
