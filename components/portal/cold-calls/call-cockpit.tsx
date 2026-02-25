@@ -34,9 +34,6 @@ import {
   Voicemail,
   SkipForward,
   ChevronRight,
-  Radio,
-  Mic,
-  MicOff,
   Sparkles,
   Clock,
   ChevronDown,
@@ -51,6 +48,7 @@ import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import type { DialerLead, DialerOutcome, DialerQueueResponse } from "@/lib/dialer/types"
 import type { AIAnalysisResult, RecordingState } from "@/lib/dialer/ai-types"
+import type { CallState } from "@/lib/dialer/types"
 import { LiveNotes } from "./live-notes"
 import { KeyboardShortcuts } from "./keyboard-shortcuts"
 import { AIAnalysisPanel } from "./ai-analysis-panel"
@@ -421,6 +419,25 @@ export function CallCockpit() {
     useCallRecording()
   const isRecording = recordingState === "recording"
 
+  // Recording blob from last call (for AI analysis)
+  const lastCallBlobRef = useRef<Blob | null>(null)
+
+  // Sync recording with call lifecycle
+  const handleCallStateChange = useCallback(
+    async (state: CallState) => {
+      if (state === "connecting") {
+        // Start recording when we begin dialing
+        lastCallBlobRef.current = null
+        startRecording()
+      } else if (state === "disconnected") {
+        // Stop recording when call ends — capture blob for AI
+        const blob = await stopRecording()
+        lastCallBlobRef.current = blob
+      }
+    },
+    [startRecording, stopRecording]
+  )
+
   const leads = queue?.leads || []
   const currentLead = leads[currentIndex] ?? null
   const totalInQueue = queue?.totalToday || 0
@@ -557,10 +574,13 @@ export function CallCockpit() {
         const leadSnap = currentLead
         const notesSnap = liveNotes || notes
         const demoDateSnap = demoDate
-        const wasRecording = isRecording
 
-        let blob: Blob | null = null
-        if (wasRecording) blob = await stopRecording()
+        // Stop any live recording and grab the blob
+        let blob: Blob | null = lastCallBlobRef.current
+        lastCallBlobRef.current = null
+        if (isRecording) {
+          blob = await stopRecording()
+        }
 
         setSessionDials((c) => c + 1)
         if (outcome === "demo_booked") setSessionDemos((c) => c + 1)
@@ -576,7 +596,7 @@ export function CallCockpit() {
           setCurrentIndex(0)
         }
 
-        if (wasRecording && blob) {
+        if (blob && blob.size > 0) {
           setPendingLead(leadSnap)
           await runAIAnalysis(leadSnap, outcome)
         } else {
@@ -815,55 +835,19 @@ export function CallCockpit() {
     </div>
   )
 
-  // ─── Call button block ────────────────────────────────────────────────────────
+  // ─── Recording indicator (auto-managed — no manual button needed) ────────────
 
-  const callBlock = (
-    <div className="space-y-2">
-      <div className="flex items-stretch gap-2">
-        {/* Record toggle */}
-        <button
-          type="button"
-          onClick={() => (isRecording ? stopRecording() : startRecording())}
-          className={cn(
-            "flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-3 py-2 text-xs font-medium transition-all",
-            isRecording
-              ? "border-red-500 bg-red-500/10 text-red-400"
-              : recordingState === "error"
-                ? "cursor-not-allowed border-red-400/30 bg-red-400/5 text-red-400/60"
-                : "border-muted-foreground/20 text-muted-foreground hover:border-orange-400/60 hover:bg-orange-500/5 hover:text-orange-400"
-          )}
-        >
-          {isRecording ? (
-            <>
-              <div className="relative">
-                <span className="absolute -right-1 -top-1 size-2 animate-pulse rounded-full bg-red-500" />
-                <Radio className="size-4" />
-              </div>
-              <span className="tabular-nums">{formatDuration(durationMs)}</span>
-            </>
-          ) : recordingState === "error" ? (
-            <>
-              <MicOff className="size-4" />
-              <span>No mic</span>
-            </>
-          ) : (
-            <>
-              <Mic className="size-4" />
-              <span>Record</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {isRecording && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2">
-          <span className="size-2 shrink-0 animate-pulse rounded-full bg-red-500" />
-          <span className="text-xs text-red-400">Recording — AI will analyze when you log outcome</span>
-          <Sparkles className="ml-auto size-3 shrink-0 text-orange-400" />
-        </div>
-      )}
+  const recordingIndicator = isRecording ? (
+    <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-1.5 shrink-0">
+      <span className="size-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+      <span className="text-xs text-red-400 tabular-nums">{formatDuration(durationMs)}</span>
+      <Sparkles className="ml-1 size-3 shrink-0 text-orange-400" />
     </div>
-  )
+  ) : recordingState === "error" ? (
+    <div className="flex items-center gap-1.5 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-1.5 text-xs text-red-400/60 shrink-0">
+      <span>No mic</span>
+    </div>
+  ) : null
 
   // ─── Power Dialer block ───────────────────────────────────────────────────────
 
@@ -875,6 +859,7 @@ export function CallCockpit() {
         onSkipToNext={skipLead}
         autoDialActive={autoDialActive}
         onCancelAutoDial={() => setAutoDialActive(false)}
+        onCallStateChange={handleCallStateChange}
         countdownSeconds={5}
       />
     </Suspense>
@@ -894,18 +879,14 @@ export function CallCockpit() {
         {/* ── Call Controls Bar (TOP — always visible) ──────────────────────── */}
         <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
           {/* Power Dialer — main call button */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             {powerDialerBlock}
           </div>
 
-          <Separator orientation="vertical" className="h-auto self-stretch" />
+          {/* Recording indicator (auto-starts with call) */}
+          {recordingIndicator}
 
-          {/* Record toggle */}
-          <div className="shrink-0">
-            {callBlock}
-          </div>
-
-          <Separator orientation="vertical" className="h-auto self-stretch" />
+          <Separator orientation="vertical" className="h-6 self-auto" />
 
           {/* Skip button */}
           <Button
@@ -1009,8 +990,10 @@ export function CallCockpit() {
         {/* Power Dialer — call button at top */}
         {powerDialerBlock}
 
-        {/* Record toggle */}
-        {callBlock}
+        {/* Recording indicator */}
+        {recordingIndicator && (
+          <div className="px-1">{recordingIndicator}</div>
+        )}
 
         {/* Script - collapsed */}
         <MobileSection label="📋 Script" defaultOpen={false}>

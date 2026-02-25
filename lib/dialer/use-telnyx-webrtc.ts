@@ -12,6 +12,8 @@ export interface UseTelnyxWebRTCReturn {
   makeCall: (phoneNumber: string) => void
   hangUp: () => void
   toggleMute: () => void
+  /** Reset callState back to "idle" — call after showing "Call Ended" briefly */
+  setCallStateIdle: () => void
 }
 
 /**
@@ -293,6 +295,11 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
     }
   }, [isMuted])
 
+  const setCallStateIdle = useCallback(() => {
+    setCallState("idle")
+    setCallDuration(0)
+  }, [])
+
   return {
     callState,
     callDuration,
@@ -302,5 +309,6 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
     makeCall,
     hangUp,
     toggleMute,
+    setCallStateIdle,
   }
 }

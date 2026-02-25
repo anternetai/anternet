@@ -5,8 +5,6 @@ import {
   Phone,
   PhoneOff,
   Pause,
-  Play,
-  Zap,
   Loader2,
   CheckCircle2,
   Settings2,
@@ -15,7 +13,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { DialerLead } from "@/lib/dialer/types"
+import type { DialerLead, CallState } from "@/lib/dialer/types"
 import { useTelnyxWebRTC } from "@/lib/dialer/use-telnyx-webrtc"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +25,8 @@ interface PowerDialerProps {
   countdownSeconds?: number
   autoDialActive?: boolean
   onCancelAutoDial?: () => void
+  /** Called whenever callState changes — lets parent sync recording etc. */
+  onCallStateChange?: (state: CallState) => void
   className?: string
 }
 
@@ -72,10 +72,11 @@ function CircularCountdown({
 export function PowerDialer({
   lead,
   onCallComplete,
-  onSkipToNext,
+  onSkipToNext: _onSkipToNext,
   countdownSeconds = 5,
   autoDialActive = false,
   onCancelAutoDial,
+  onCallStateChange,
   className,
 }: PowerDialerProps) {
   const [countdown, setCountdown] = useState(countdownSeconds)
@@ -86,6 +87,8 @@ export function PowerDialer({
 
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const hasAutoDialedRef = useRef(false)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevCallStateRef = useRef<CallState>("idle")
 
   const {
     callState,
@@ -96,12 +99,42 @@ export function PowerDialer({
     hangUp,
     toggleMute,
     isMuted,
+    setCallStateIdle,
   } = useTelnyxWebRTC()
 
   const makeCall = useCallback(
     (phoneNumber: string) => webrtcMakeCall(phoneNumber),
     [webrtcMakeCall]
   )
+
+  // ─── Notify parent of call state changes ──────────────────────────────────
+
+  useEffect(() => {
+    if (callState !== prevCallStateRef.current) {
+      prevCallStateRef.current = callState
+      onCallStateChange?.(callState)
+    }
+  }, [callState, onCallStateChange])
+
+  // ─── Auto-reset: disconnected → idle after 2s ─────────────────────────────
+
+  useEffect(() => {
+    if (callState === "disconnected") {
+      // Notify parent call is complete
+      onCallComplete?.(null)
+
+      // Clear any existing reset timer
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+
+      resetTimerRef.current = setTimeout(() => {
+        setCallStateIdle?.()
+      }, 2000)
+    }
+
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    }
+  }, [callState, onCallComplete, setCallStateIdle])
 
   // ─── Sync external autoDialActive prop ──────────────────────────────────
 
@@ -110,7 +143,7 @@ export function PowerDialer({
       setLocalAutoDial(true)
       setCountdown(configuredSeconds)
       hasAutoDialedRef.current = false
-    } else {
+    } else if (!autoDialActive) {
       setLocalAutoDial(false)
     }
   }, [autoDialActive, lead, configuredSeconds])
@@ -129,6 +162,7 @@ export function PowerDialer({
 
     setIsCountingDown(true)
     hasAutoDialedRef.current = false
+    setCountdown(configuredSeconds)
 
     countdownRef.current = setInterval(() => {
       setCountdown((prev) => {
@@ -162,13 +196,14 @@ export function PowerDialer({
     }
   }, [countdown, localAutoDial, lead, callState, makeCall])
 
-  // ─── Notify parent when call ends ─────────────────────────────────────────
+  // ─── Cleanup on unmount ──────────────────────────────────────────────────
 
   useEffect(() => {
-    if (callState === "disconnected") {
-      onCallComplete?.(null)
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      if (countdownRef.current) clearInterval(countdownRef.current)
     }
-  }, [callState, onCallComplete])
+  }, [])
 
   // ─── Actions ─────────────────────────────────────────────────────────────
 
@@ -212,7 +247,6 @@ export function PowerDialer({
 
   const callEnded = callState === "disconnected"
 
-  const businessName = lead?.business_name || "Unknown Business"
   const durationFormatted = `${Math.floor(callDuration / 60)}:${String(callDuration % 60).padStart(2, "0")}`
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -226,11 +260,11 @@ export function PowerDialer({
   }
 
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("flex items-center gap-3 flex-wrap", className)}>
 
       {/* ── Countdown Mode ─────────────────────────────────────────── */}
       {isCountingDown && !isInCall && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <CircularCountdown remaining={countdown} total={configuredSeconds} size={48} />
           <div className="flex items-center gap-2">
             <Button
@@ -276,8 +310,8 @@ export function PowerDialer({
 
       {/* ── Active Call Mode ────────────────────────────────────────── */}
       {isInCall && (
-        <div className="flex items-center gap-3">
-          {/* Status */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Status indicator */}
           <div className="flex items-center gap-2">
             {callState === "connecting" && <Loader2 className="h-4 w-4 text-orange-400 animate-spin" />}
             {callState === "ringing" && <Phone className="h-4 w-4 text-orange-400 animate-bounce" />}
@@ -286,8 +320,8 @@ export function PowerDialer({
               "text-sm font-medium tabular-nums",
               callState === "connected" ? "text-emerald-400" : "text-orange-400"
             )}>
-              {callState === "connecting" && "Connecting..."}
-              {callState === "ringing" && "Ringing..."}
+              {callState === "connecting" && "Connecting…"}
+              {callState === "ringing" && "Ringing…"}
               {callState === "connected" && durationFormatted}
             </span>
           </div>
@@ -318,17 +352,18 @@ export function PowerDialer({
         </div>
       )}
 
-      {/* ── Call Ended State ────────────────────────────────────────── */}
+      {/* ── Call Ended State (shows for 2s then goes back to idle) ──── */}
       {callEnded && (
         <div className="flex items-center gap-2 text-emerald-400">
           <CheckCircle2 className="h-4 w-4" />
           <span className="text-sm font-medium">Call Ended</span>
           <span className="text-xs text-muted-foreground tabular-nums">{durationFormatted}</span>
+          <span className="text-xs text-muted-foreground/50">— log outcome below</span>
         </div>
       )}
 
-      {/* ── Idle: big dial button ────────────────────────────────────── */}
-      {callState === "idle" && !isCountingDown && !callEnded && (
+      {/* ── Idle: dial button ────────────────────────────────────────── */}
+      {callState === "idle" && !isCountingDown && (
         <div className="flex items-center gap-2">
           <Button
             onClick={handleManualDial}
@@ -336,24 +371,16 @@ export function PowerDialer({
             className="gap-2 bg-orange-500 hover:bg-orange-600 text-white border-0 font-bold px-6"
           >
             <Phone className="h-4 w-4" />
-            Dial {businessName}
+            {isReady ? "Dial" : "Connecting…"}
           </Button>
 
-          {onSkipToNext && (
-            <Button
-              onClick={onSkipToNext}
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground gap-1.5 hover:text-foreground"
-            >
-              <Play className="h-3.5 w-3.5" />
-              Auto-Dial
-            </Button>
+          {!isReady && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
       )}
 
-      {/* Error */}
+      {/* Error state */}
       {telnyxError && (
         <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-1.5">
           <p className="text-xs text-red-400">{telnyxError}</p>
