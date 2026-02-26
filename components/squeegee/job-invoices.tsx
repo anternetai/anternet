@@ -115,6 +115,7 @@ export function JobInvoices({ job }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           job_id: job.id,
+          client_id: job.client_id ?? null,
           amount: parseFloat(form.amount),
           due_date: form.due_date || null,
           notes: form.notes.trim() || null,

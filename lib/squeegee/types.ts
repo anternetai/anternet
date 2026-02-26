@@ -13,6 +13,7 @@ export interface SqueegeeJob {
   status: JobStatus
   appointment_date: string | null
   appointment_time: string | null
+  client_id?: string | null
 }
 
 export const STATUS_ORDER: JobStatus[] = ["new", "quoted", "approved", "scheduled", "complete"]

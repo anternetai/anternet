@@ -4,14 +4,14 @@ import Stripe from 'stripe'
 
 function getAdmin() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 }
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2026-02-25.clover',
+    apiVersion: '2024-06-20',
   })
 }
 
@@ -20,77 +20,46 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { job_id, client_id, amount, due_date, notes } = body
 
-    if (!job_id || !client_id || !amount) {
-      return NextResponse.json(
-        { error: 'job_id, client_id, and amount are required' },
-        { status: 400 }
-      )
+    if (!job_id || !amount) {
+      return NextResponse.json({ error: 'job_id and amount are required' }, { status: 400 })
     }
 
     const supabase = getAdmin()
     const stripe = getStripe()
 
-    // Generate invoice number: INV-{year}-{sequence}
-    // Try using the sequence; fall back to count-based numbering
-    let sequence: number
-    const { data: seqData, error: seqError } = await supabase.rpc(
-      'nextval_invoice_seq'
-    )
+    // Invoice number: INV-{year}-{count+1}
+    const { count } = await supabase.from('squeegee_invoices').select('*', { count: 'exact', head: true })
+    const sequence = (count ?? 0) + 1001
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(sequence).padStart(4, '0')}`
 
-    if (seqError || seqData === null) {
-      // Fallback: use count of existing invoices + 1
-      const { count, error: countError } = await supabase
-        .from('squeegee_invoices')
-        .select('*', { count: 'exact', head: true })
-
-      sequence = countError ? (Date.now() % 100000) : (count ?? 0) + 1
-    } else {
-      sequence = seqData as number
-    }
-
-    const year = new Date().getFullYear()
-    const invoiceNumber = `INV-${year}-${String(sequence).padStart(4, '0')}`
-
-    // Create Stripe Price (one-time)
+    // Create Stripe Payment Link
     const amountInCents = Math.round(Number(amount) * 100)
     const stripePrice = await stripe.prices.create({
       currency: 'usd',
       unit_amount: amountInCents,
-      product_data: {
-        name: 'Dr. Squeegee House Washing Services',
-      },
+      product_data: { name: 'Dr. Squeegee House Washing Services' },
     })
-
-    // Create Stripe Payment Link
     const paymentLink = await stripe.paymentLinks.create({
-      line_items: [
-        {
-          price: stripePrice.id,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: stripePrice.id, quantity: 1 }],
     })
 
-    // Save invoice to DB
+    // Save invoice
     const { data: invoice, error: invoiceError } = await supabase
       .from('squeegee_invoices')
       .insert({
         job_id,
-        client_id,
+        client_id: client_id || null,
         invoice_number: invoiceNumber,
         amount: Number(amount),
         due_date: due_date || null,
         notes: notes || null,
         status: 'draft',
         stripe_payment_link: paymentLink.url,
-        stripe_price_id: stripePrice.id,
-        stripe_payment_link_id: paymentLink.id,
       })
       .select()
       .single()
 
     if (invoiceError) {
-      console.error('Invoice insert error:', invoiceError)
       return NextResponse.json({ error: invoiceError.message }, { status: 500 })
     }
 
@@ -103,7 +72,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(invoice, { status: 201 })
   } catch (err) {
-    console.error('Create invoice error:', err)
     const message = err instanceof Error ? err.message : 'Internal server error'
     return NextResponse.json({ error: message }, { status: 500 })
   }
