@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Droplets, LayoutDashboard, Briefcase } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Droplets, LayoutDashboard, Briefcase, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
@@ -20,6 +20,13 @@ const navItems = [
 
 export function SqueegeeNav() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  async function handleLogout() {
+    await fetch("/api/crm/auth/logout", { method: "POST" })
+    router.push("/crm/login")
+    router.refresh()
+  }
 
   return (
     <header className="border-b border-border bg-card sticky top-0 z-50">
@@ -60,9 +67,17 @@ export function SqueegeeNav() {
             })}
           </nav>
 
-          {/* Right side info */}
-          <div className="shrink-0 text-xs text-muted-foreground hidden sm:block">
-            Internal portal
+          {/* Right side */}
+          <div className="shrink-0 flex items-center gap-3">
+            <span className="text-xs text-muted-foreground hidden sm:block">Internal portal</span>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Log out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Log out</span>
+            </button>
           </div>
         </div>
       </div>

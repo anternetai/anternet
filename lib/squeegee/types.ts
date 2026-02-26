@@ -34,3 +34,36 @@ export const SERVICE_TYPES = [
 ] as const
 
 export type ServiceType = (typeof SERVICE_TYPES)[number]
+
+export interface SqueegeeClient {
+  id: string
+  created_at: string
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  notes: string | null
+}
+
+export interface SqueegeeInvoice {
+  id: string
+  created_at: string
+  job_id: string
+  client_id: string | null
+  invoice_number: string
+  amount: number
+  status: "draft" | "sent" | "paid" | "overdue"
+  due_date: string | null
+  paid_at: string | null
+  stripe_payment_link: string | null
+  stripe_payment_intent_id: string | null
+  notes: string | null
+}
+
+export interface SqueegeeActivityItem {
+  id: string
+  created_at: string
+  job_id: string
+  type: string
+  note: string
+}
