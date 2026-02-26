@@ -1,0 +1,424 @@
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
+import { SqueegeeInvoice, SqueegeeJob } from "@/lib/squeegee/types"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  FileText,
+  Plus,
+  Check,
+  Copy,
+  Loader2,
+  Send,
+  CreditCard,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+
+type InvoiceStatus = SqueegeeInvoice["status"]
+
+const STATUS_BADGE: Record<InvoiceStatus, string> = {
+  draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  sent: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  paid: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  overdue: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+}
+
+const STATUS_LABEL: Record<InvoiceStatus, string> = {
+  draft: "Draft",
+  sent: "Sent",
+  paid: "Paid",
+  overdue: "Overdue",
+}
+
+function getDueDateDefault(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 14)
+  return d.toISOString().split("T")[0]
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleCopy}
+      className={cn("h-7 px-2 gap-1 text-xs", copied && "text-green-600")}
+    >
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+      {copied ? "Copied" : "Copy link"}
+    </Button>
+  )
+}
+
+interface Props {
+  job: SqueegeeJob
+}
+
+export function JobInvoices({ job }: Props) {
+  const [invoices, setInvoices] = useState<SqueegeeInvoice[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+
+  const [form, setForm] = useState({
+    amount: job.price != null ? String(job.price) : "",
+    due_date: getDueDateDefault(),
+    notes: "",
+  })
+
+  const fetchInvoices = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/squeegee/jobs/${job.id}/invoices`)
+      if (res.ok) {
+        const data = await res.json()
+        setInvoices(data.invoices || [])
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false)
+    }
+  }, [job.id])
+
+  useEffect(() => {
+    fetchInvoices()
+  }, [fetchInvoices])
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setFormError(null)
+
+    if (!form.amount || parseFloat(form.amount) <= 0) {
+      setFormError("Amount must be greater than 0.")
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await fetch("/api/squeegee/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: job.id,
+          amount: parseFloat(form.amount),
+          due_date: form.due_date || null,
+          notes: form.notes.trim() || null,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        setFormError(err.error || "Failed to create invoice.")
+        setSubmitting(false)
+        return
+      }
+
+      setShowForm(false)
+      setForm({
+        amount: job.price != null ? String(job.price) : "",
+        due_date: getDueDateDefault(),
+        notes: "",
+      })
+      await fetchInvoices()
+    } catch {
+      setFormError("Network error. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function updateStatus(invoiceId: string, status: InvoiceStatus) {
+    setUpdatingId(invoiceId)
+    try {
+      await fetch(`/api/squeegee/invoices/${invoiceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      await fetchInvoices()
+    } catch {
+      // silent
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[oklch(0.5_0.18_210)]" />
+            <CardTitle className="text-base">
+              Invoices
+              {invoices.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  ({invoices.length})
+                </span>
+              )}
+            </CardTitle>
+          </div>
+          {!showForm && (
+            <Button
+              size="sm"
+              onClick={() => setShowForm(true)}
+              className="bg-[oklch(0.5_0.18_210)] hover:bg-[oklch(0.45_0.18_210)] text-white"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Create Invoice
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {/* Create form */}
+        {showForm && (
+          <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">New Invoice</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowForm(false)
+                  setFormError(null)
+                }}
+                className="h-7 w-7 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Amount ($) <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={form.amount}
+                    onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+                    placeholder="0.00"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Due Date</Label>
+                  <Input
+                    type="date"
+                    value={form.due_date}
+                    onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs">Notes</Label>
+                  <Textarea
+                    rows={2}
+                    value={form.notes}
+                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                    placeholder="Optional invoice note…"
+                  />
+                </div>
+              </div>
+
+              {formError && (
+                <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+                  {formError}
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={submitting}
+                  className="bg-[oklch(0.5_0.18_210)] hover:bg-[oklch(0.45_0.18_210)] text-white"
+                >
+                  {submitting && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                  Create Invoice
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowForm(false)
+                    setFormError(null)
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Invoice list */}
+        {loading ? (
+          <div className="flex items-center justify-center py-6 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            <span className="text-sm">Loading invoices…</span>
+          </div>
+        ) : invoices.length === 0 ? (
+          !showForm && (
+            <div className="text-center py-6 text-muted-foreground">
+              <FileText className="h-8 w-8 mx-auto mb-2 opacity-25" />
+              <p className="text-sm">No invoices yet for this job.</p>
+            </div>
+          )
+        ) : (
+          <div className="space-y-3">
+            {invoices.map((inv) => (
+              <InvoiceRow
+                key={inv.id}
+                invoice={inv}
+                isUpdating={updatingId === inv.id}
+                onMarkSent={() => updateStatus(inv.id, "sent")}
+                onMarkPaid={() => updateStatus(inv.id, "paid")}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function InvoiceRow({
+  invoice,
+  isUpdating,
+  onMarkSent,
+  onMarkPaid,
+}: {
+  invoice: SqueegeeInvoice
+  isUpdating: boolean
+  onMarkSent: () => void
+  onMarkPaid: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      {/* Row header */}
+      <div
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setExpanded((p) => !p)}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-xs text-muted-foreground">{invoice.invoice_number}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[invoice.status]}`}>
+              {STATUS_LABEL[invoice.status]}
+            </span>
+          </div>
+          {invoice.due_date && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Due {new Date(invoice.due_date + "T00:00:00").toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="font-semibold">${Number(invoice.amount).toFixed(2)}</span>
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+      </div>
+
+      {/* Expanded actions */}
+      {expanded && (
+        <div className="border-t border-border px-4 py-3 bg-muted/20 space-y-3">
+          {invoice.notes && (
+            <p className="text-sm text-muted-foreground">{invoice.notes}</p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {/* Payment link */}
+            {invoice.stripe_payment_link ? (
+              <CopyButton text={invoice.stripe_payment_link} />
+            ) : null}
+
+            {/* Mark Sent */}
+            {invoice.status === "draft" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-3 gap-1.5 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMarkSent()
+                }}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Send className="h-3 w-3" />
+                )}
+                Mark Sent
+              </Button>
+            )}
+
+            {/* Mark Paid */}
+            {(invoice.status === "sent" || invoice.status === "overdue") && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-3 gap-1.5 text-xs text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/20"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMarkPaid()
+                }}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <CreditCard className="h-3 w-3" />
+                )}
+                Mark Paid
+              </Button>
+            )}
+
+            {invoice.status === "paid" && invoice.paid_at && (
+              <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <Check className="h-3 w-3" />
+                Paid{" "}
+                {new Date(invoice.paid_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

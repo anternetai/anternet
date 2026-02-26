@@ -43,10 +43,13 @@ export default async function InvoicesPage() {
     .select("*, squeegee_jobs(client_name)")
     .order("created_at", { ascending: false })
 
-  const allInvoices: InvoiceRow[] = (invoices || []).map((inv: Record<string, unknown>) => ({
-    ...(inv as SqueegeeInvoice),
-    job_client_name: (inv.squeegee_jobs as { client_name?: string } | null)?.client_name ?? null,
-  }))
+  const allInvoices: InvoiceRow[] = (invoices || []).map((inv) => {
+    const row = inv as unknown as SqueegeeInvoice & { squeegee_jobs?: { client_name?: string } | null }
+    return {
+      ...row,
+      job_client_name: row.squeegee_jobs?.client_name ?? null,
+    }
+  })
 
   // Revenue summary
   const totalInvoiced = allInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0)
