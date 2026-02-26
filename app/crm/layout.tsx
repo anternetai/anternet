@@ -5,6 +5,12 @@ import { SqueegeeNav } from "@/components/squeegee/squeegee-nav"
 export const metadata: Metadata = {
   title: "Dr. Squeegee | CRM",
   description: "Internal job management portal for Dr. Squeegee House Washing",
+  openGraph: {
+    title: "Dr. Squeegee",
+    description: "Professional House Washing",
+    siteName: "Dr. Squeegee",
+    type: "website",
+  },
 }
 
 export default function SqueegeeLayout({ children }: { children: React.ReactNode }) {

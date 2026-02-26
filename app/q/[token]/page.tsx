@@ -35,7 +35,13 @@ function getAdmin() {
 
 export const metadata: Metadata = {
   title: 'Your Quote – Dr. Squeegee',
-  description: 'Professional house washing service quote',
+  description: 'Professional house washing service quote from Dr. Squeegee',
+  openGraph: {
+    title: 'Dr. Squeegee – Your Service Quote',
+    description: 'Professional house washing service quote from Dr. Squeegee',
+    siteName: 'Dr. Squeegee',
+    type: 'website',
+  },
 }
 
 export default async function QuotePage({ params }: PageProps) {
