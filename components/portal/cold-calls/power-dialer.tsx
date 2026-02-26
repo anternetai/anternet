@@ -138,9 +138,6 @@ export function PowerDialer({
 
   useEffect(() => {
     if (callState === "disconnected") {
-      // Notify parent call is complete
-      onCallComplete?.(null)
-
       // Clear any existing reset timer
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
 
@@ -152,7 +149,7 @@ export function PowerDialer({
     return () => {
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
     }
-  }, [callState, onCallComplete, setCallStateIdle])
+  }, [callState, setCallStateIdle])
 
   // ─── Sync external autoDialActive prop ──────────────────────────────────
 

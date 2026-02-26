@@ -913,7 +913,7 @@ export function CallCockpit() {
     <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-muted" />}>
       <PowerDialer
         lead={currentLead}
-        onCallComplete={() => {}}
+        onCallComplete={undefined}
         onSkipToNext={skipLead}
         autoDialActive={autoDialActive}
         onCancelAutoDial={() => setAutoDialActive(false)}

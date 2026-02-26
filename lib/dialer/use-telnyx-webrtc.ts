@@ -164,19 +164,12 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
         isCurrentCall: call === callRef.current,
       })
 
-      // CRITICAL: Ignore events from stale/old calls.
-      // Guard 1: If we have a current call and this event is from a different call, ignore.
-      if (callRef.current !== null && call !== callRef.current) {
-        console.log(`[Telnyx] ⚠️ Ignoring event from stale call (identity mismatch)`)
-        return
-      }
-      // Guard 2: If this is a terminal event but we're already in a forward state
-      // (e.g., old call's "destroy" arriving after new call's "connecting"),
-      // ignore it. This catches the case where hangUp() set callRef to null.
-      const terminalStates = ["hangup", "destroy", "purge"]
-      const forwardStates: CallState[] = ["connecting", "ringing", "connected"]
-      if (terminalStates.includes(state) && forwardStates.includes(callStateRef.current)) {
-        console.log(`[Telnyx] ⚠️ Ignoring stale terminal event "${state}" — current state is "${callStateRef.current}"`)
+      // CRITICAL: Only process events from our current active call.
+      // After hangUp() sets callRef to null, ALL events are blocked.
+      // After makeCall() sets callRef to the new call, only new call events pass.
+      // This prevents stale destroy/purge events from overriding the next call's state.
+      if (call !== callRef.current) {
+        console.log(`[Telnyx] ⚠️ Ignoring event "${state}" from stale/inactive call`)
         return
       }
 
