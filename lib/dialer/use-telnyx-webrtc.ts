@@ -148,13 +148,22 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
 
     function handleCallState(call: any) {
       if (!mountedRef.current) return
-      
+
       const state = call.state
       console.log(`[Telnyx] 📞 Call state: ${state}`, {
         cause: call.cause,
         sipCode: call.sipCode,
         sipReason: call.sipReason,
+        isCurrentCall: call === callRef.current,
       })
+
+      // CRITICAL: Ignore events from stale/old calls.
+      // When a new call starts, the old call's destroy/purge events
+      // must not clobber the new call's connecting/ringing state.
+      if (callRef.current !== null && call !== callRef.current) {
+        console.log(`[Telnyx] ⚠️ Ignoring event from stale call`)
+        return
+      }
 
       // Attach remote audio stream when available
       if (call.remoteStream && audioRef.current) {

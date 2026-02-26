@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
     .select("*")
     .eq("status", "queued")
     .lt("attempt_count", 5)
+    .or(`next_call_at.is.null,next_call_at.lte.${now}`)
     .order("attempt_count", { ascending: true })
     .order("created_at", { ascending: true })
     .limit(limit)
