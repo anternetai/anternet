@@ -3,6 +3,19 @@
 import { useState } from "react"
 import type { SqueegeeQuote } from "./page"
 
+const SERVICE_DESCRIPTIONS: Record<string, string> = {
+  "House Washing":
+    "Soft wash of all exterior siding, eaves, and trim to remove dirt, mildew, and algae.",
+  "Surface Cleaning":
+    "High-pressure cleaning of concrete, brick, or stone walkways and patios.",
+  Driveway:
+    "Full driveway pressure wash to remove oil stains, tire marks, and buildup.",
+  "Pool Deck":
+    "Pressure wash and surface treatment of pool deck to restore a clean, slip-safe finish.",
+  Pavers:
+    "Pressure wash of paver surfaces with joint sand preservation and weed removal.",
+}
+
 const PREP_INSTRUCTIONS: Record<string, string> = {
   "House Washing":
     "Please close all windows and doors before we arrive. Remove any fragile items or outdoor décor from the area.",
@@ -71,7 +84,7 @@ export function QuoteView({ quote: initialQuote }: Props) {
           <div className="inline-flex items-center gap-2 mb-1">
             <span className="text-2xl font-black text-blue-700 tracking-tight">Dr. Squeegee</span>
           </div>
-          <p className="text-sm text-gray-500">Professional Exterior Cleaning</p>
+          <p className="text-sm text-gray-500">Professional House Washing</p>
         </div>
 
         {/* Quote details */}
@@ -92,8 +105,13 @@ export function QuoteView({ quote: initialQuote }: Props) {
               <tbody className="divide-y divide-gray-50">
                 {services.map((s, i) => (
                   <tr key={i}>
-                    <td className="py-2.5 text-gray-800 font-medium">{s.name}</td>
-                    <td className="py-2.5 text-right text-gray-800 tabular-nums">
+                    <td className="py-2.5">
+                      <div className="text-gray-800 font-medium">{s.name}</div>
+                      {SERVICE_DESCRIPTIONS[s.name] && (
+                        <div className="text-xs text-gray-500 mt-0.5">{SERVICE_DESCRIPTIONS[s.name]}</div>
+                      )}
+                    </td>
+                    <td className="py-2.5 text-right text-gray-800 tabular-nums align-top">
                       ${Number(s.price).toFixed(2)}
                     </td>
                   </tr>
@@ -188,7 +206,7 @@ export function QuoteView({ quote: initialQuote }: Props) {
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 pb-4">
-          Dr. Squeegee · Professional Exterior Cleaning
+          Dr. Squeegee · Professional House Washing
         </p>
       </div>
     </div>

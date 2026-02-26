@@ -16,6 +16,14 @@ const QUOTE_SERVICES = [
   "Pavers",
 ] as const
 
+const SERVICE_DESCRIPTIONS: Record<string, string> = {
+  "House Washing": "Soft wash of exterior siding, eaves, and trim",
+  "Surface Cleaning": "High-pressure cleaning of walkways and patios",
+  Driveway: "Full driveway pressure wash — oil stains, tire marks, buildup",
+  "Pool Deck": "Pressure wash and surface treatment of pool deck",
+  Pavers: "Paver pressure wash with joint sand preservation",
+}
+
 type QuoteService = (typeof QUOTE_SERVICES)[number]
 
 interface QuoteRecord {
@@ -113,7 +121,7 @@ export function QuoteBuilder({ job }: Props) {
     })
 
   const quoteUrl = generatedToken
-    ? `https://homefieldhub.com/q/${generatedToken}`
+    ? `https://drsqueegeeclt.com/q/${generatedToken}`
     : null
 
   async function handleGenerate() {
@@ -191,7 +199,12 @@ export function QuoteBuilder({ job }: Props) {
                     onChange={() => toggleService(service)}
                     className="h-4 w-4 rounded border-border accent-[oklch(0.5_0.18_210)]"
                   />
-                  <span className="text-sm font-medium">{service}</span>
+                  <div>
+                    <span className="text-sm font-medium">{service}</span>
+                    {SERVICE_DESCRIPTIONS[service] && (
+                      <p className="text-[11px] text-muted-foreground leading-tight">{SERVICE_DESCRIPTIONS[service]}</p>
+                    )}
+                  </div>
                 </label>
                 {selected[service] && (
                   <div className="flex items-center gap-1.5 flex-1">
@@ -289,7 +302,7 @@ export function QuoteBuilder({ job }: Props) {
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <a
-                      href={`https://homefieldhub.com/q/${q.token}`}
+                      href={`https://drsqueegeeclt.com/q/${q.token}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-[oklch(0.5_0.18_210)] hover:underline truncate"

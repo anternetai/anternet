@@ -35,7 +35,7 @@ function getAdmin() {
 
 export const metadata: Metadata = {
   title: 'Your Quote – Dr. Squeegee',
-  description: 'Professional exterior cleaning service quote',
+  description: 'Professional house washing service quote',
 }
 
 export default async function QuotePage({ params }: PageProps) {
