@@ -40,7 +40,7 @@ export default async function JobDetailPage({ params }: PageProps) {
           <div>
             <h1 className="text-2xl font-bold">{job.client_name}</h1>
             <p className="text-sm text-muted-foreground">
-              {job.service_type} · {job.address}
+              {job.service_type && job.service_type !== "Pending Quote" ? `${job.service_type} · ` : ""}{job.address}
             </p>
           </div>
         </div>

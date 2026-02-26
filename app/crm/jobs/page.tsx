@@ -108,7 +108,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
                         </td>
                         <td className="px-4 py-3">
                           <Link href={`/crm/jobs/${job.id}`} className="block">
-                            {job.service_type}
+                            {job.service_type === "Pending Quote" ? <span className="text-muted-foreground italic">Pending Quote</span> : job.service_type}
                           </Link>
                         </td>
                         <td className="px-4 py-3">
@@ -155,7 +155,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-medium">{job.client_name}</p>
-                        <p className="text-xs text-muted-foreground">{job.service_type}</p>
+                        <p className="text-xs text-muted-foreground">{job.service_type === "Pending Quote" ? "Pending Quote" : job.service_type}</p>
                       </div>
                       <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[job.status]}`}>
                         {STATUS_LABELS[job.status]}

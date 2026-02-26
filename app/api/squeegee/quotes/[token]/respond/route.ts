@@ -30,11 +30,31 @@ interface SqueegeeQuote {
   created_at: string
 }
 
-async function sendSlackNotification(quote: SqueegeeQuote) {
+const ACTION_EMOJI: Record<QuoteAction, string> = {
+  accepted: '✅',
+  declined: '❌',
+  help: '💬',
+}
+
+const ACTION_LABEL: Record<QuoteAction, string> = {
+  accepted: 'Quote Accepted!',
+  declined: 'Quote Declined',
+  help: 'Client Has Questions',
+}
+
+async function sendSlackNotification(quote: SqueegeeQuote, action: QuoteAction) {
   const services = Array.isArray(quote.services) ? quote.services : []
   const serviceNames = services.map((s: QuoteService) => s.name).join(', ')
-  const text =
-    `✅ *Quote Accepted!*\n*Client:* ${quote.client_name}\n*Address:* ${quote.address}\n*Services:* ${serviceNames}\n*Total:* $${Number(quote.total_price).toFixed(2)}\n\nText them to confirm: ${quote.client_phone ?? 'N/A'}`
+  const emoji = ACTION_EMOJI[action]
+  const label = ACTION_LABEL[action]
+
+  let text = `${emoji} *${label}*\n*Client:* ${quote.client_name}\n*Address:* ${quote.address}\n*Services:* ${serviceNames}\n*Total:* $${Number(quote.total_price).toFixed(2)}`
+
+  if (action === 'accepted') {
+    text += `\n\nText them to confirm: ${quote.client_phone ?? 'N/A'}`
+  } else if (action === 'help') {
+    text += `\n\nThey have questions — reach out: ${quote.client_phone ?? 'N/A'}`
+  }
 
   const response = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
@@ -94,10 +114,8 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    // Send Slack notification if accepted
-    if (action === 'accepted') {
-      await sendSlackNotification(quote as SqueegeeQuote)
-    }
+    // Send Slack notification for all responses
+    await sendSlackNotification(quote as SqueegeeQuote, action)
 
     return NextResponse.json({ ok: true })
   } catch (err) {

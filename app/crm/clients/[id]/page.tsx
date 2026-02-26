@@ -112,7 +112,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
                   className="flex items-center justify-between px-6 py-3 hover:bg-muted/50 transition-colors"
                 >
                   <div className="min-w-0">
-                    <p className="font-medium text-sm">{job.service_type}</p>
+                    <p className="font-medium text-sm">{job.service_type === "Pending Quote" ? "New Job" : job.service_type}</p>
                     <p className="text-xs text-muted-foreground truncate">{job.address}</p>
                     {job.appointment_date && (
                       <p className="text-xs text-muted-foreground">
