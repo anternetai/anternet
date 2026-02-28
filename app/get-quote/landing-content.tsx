@@ -34,70 +34,68 @@ const VIDEOS = [
   },
 ]
 
-function HeroVideo() {
+function AutoPlayVideo({ src, poster, className }: { src: string; poster: string; className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
+
+    const v = video
+    // Try to play immediately once enough data is buffered
+    function tryPlay() {
+      v.play().catch(() => {
+        // Autoplay blocked — show controls so user can tap to play
+        v.controls = true
+      })
+    }
+
+    // Pause when scrolled off screen, resume when visible
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          video.play().catch(() => {})
+          tryPlay()
         } else {
           video.pause()
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.2 }
     )
     observer.observe(video)
+
     return () => observer.disconnect()
   }, [])
 
   return (
+    <video
+      ref={videoRef}
+      className={className}
+      autoPlay
+      playsInline
+      muted
+      loop
+      preload="auto"
+      poster={poster}
+      src={src}
+    />
+  )
+}
+
+function HeroVideo() {
+  return (
     <section className="max-w-sm mx-auto px-4 py-10">
       <div className="rounded-xl overflow-hidden border border-[#3A6B4C]/10 bg-white shadow-sm">
-        <video
-          ref={videoRef}
-          className="w-full aspect-[9/16] object-cover"
-          playsInline
-          muted
-          loop
-          preload="auto"
+        <AutoPlayVideo
+          src="/videos/squeegee/house-washing.mp4"
           poster="/videos/squeegee/house-washing-poster.jpg"
-        >
-          <source src="/videos/squeegee/house-washing.mp4" type="video/mp4" />
-        </video>
+          className="w-full aspect-[9/16] object-cover"
+        />
       </div>
     </section>
   )
 }
 
 function VideoShowcase() {
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
-
-  useEffect(() => {
-    const observers: IntersectionObserver[] = []
-
-    videoRefs.current.forEach((video) => {
-      if (!video) return
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            video.play().catch(() => {})
-          } else {
-            video.pause()
-          }
-        },
-        { threshold: 0.4 }
-      )
-      observer.observe(video)
-      observers.push(observer)
-    })
-
-    return () => observers.forEach((o) => o.disconnect())
-  }, [])
-
   return (
     <section className="border-y border-[#3A6B4C]/10">
       <div className="max-w-5xl mx-auto px-4 py-16">
@@ -110,19 +108,13 @@ function VideoShowcase() {
           Real Results, Real Homes
         </h2>
         <div className="grid grid-cols-2 gap-4 md:gap-6 max-w-2xl mx-auto">
-          {VIDEOS.map((v, i) => (
+          {VIDEOS.map((v) => (
             <div key={v.src} className="rounded-xl overflow-hidden border border-[#3A6B4C]/10 bg-white">
-              <video
-                ref={(el) => { videoRefs.current[i] = el }}
-                className="w-full aspect-[9/16] object-cover"
-                playsInline
-                muted
-                loop
-                preload="none"
+              <AutoPlayVideo
+                src={v.src}
                 poster={v.poster}
-              >
-                <source src={v.src} type="video/mp4" />
-              </video>
+                className="w-full aspect-[9/16] object-cover"
+              />
               <div className="p-3 text-center">
                 <h3 className="font-semibold text-sm text-[#2B2B2B]">{v.title}</h3>
                 <p className="text-xs text-[#2B2B2B]/50">{v.subtitle}</p>
