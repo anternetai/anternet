@@ -165,8 +165,56 @@ export function LandingContent() {
         </div>
       </section>
 
+      {/* ── Video Showcase ── */}
+      <section className="border-y border-[#3A6B4C]/10">
+        <div className="max-w-5xl mx-auto px-4 py-16">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <div className="h-px w-8 bg-[#C8973E]/50" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-[#C8973E]">See Our Work</span>
+            <div className="h-px w-8 bg-[#C8973E]/50" />
+          </div>
+          <h2 style={{ fontFamily: FONTS.display }} className="text-2xl md:text-3xl font-bold text-center mb-10 text-[#2B2B2B]">
+            Real Results, Real Homes
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-xl overflow-hidden border border-[#3A6B4C]/10 bg-white">
+              <video
+                className="w-full aspect-video object-cover"
+                controls
+                playsInline
+                muted
+                preload="metadata"
+                poster=""
+              >
+                <source src="/videos/squeegee/driveway-cleaning.mp4" type="video/mp4" />
+              </video>
+              <div className="p-4">
+                <h3 className="font-semibold text-sm text-[#2B2B2B]">Driveway Cleaning — Midwood, Charlotte</h3>
+                <p className="text-xs text-[#2B2B2B]/50 mt-1">Black streaks and algae removed in one visit.</p>
+              </div>
+            </div>
+            <div className="rounded-xl overflow-hidden border border-[#3A6B4C]/10 bg-white">
+              <video
+                className="w-full aspect-video object-cover"
+                controls
+                playsInline
+                muted
+                preload="metadata"
+                poster=""
+              >
+                <source src="/videos/squeegee/house-washing.mp4" type="video/mp4" />
+              </video>
+              <div className="p-4">
+                <h3 className="font-semibold text-sm text-[#2B2B2B]">House Washing — Charlotte, NC</h3>
+                <p className="text-xs text-[#2B2B2B]/50 mt-1">Soft wash that makes your home look brand new.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Reviews ── */}
-      <section className="bg-[#F5F0E1]/40 border-y border-[#3A6B4C]/10">
+      <section className="bg-[#F5F0E1]/40 border-b border-[#3A6B4C]/10">
         <div className="max-w-5xl mx-auto px-4 py-16">
           <div className="flex items-center justify-center gap-3 mb-3">
             <div className="h-px w-8 bg-[#C8973E]/50" />
