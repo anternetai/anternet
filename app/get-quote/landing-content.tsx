@@ -178,9 +178,7 @@ export function LandingContent() {
       {/* ── Sticky Header ── */}
       <header className="sticky top-0 z-50 bg-[#FEFCF7]/90 backdrop-blur-sm border-b border-[#3A6B4C]/10">
         <div className="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
-          <span style={{ fontFamily: FONTS.display }} className="text-lg font-bold tracking-tight text-[#2B2B2B]">
-            Dr.&nbsp;<span className="text-[#3A6B4C]">Squeegee</span>
-          </span>
+          <img src="/images/squeegee/wordmark.png" alt="Dr. Squeegee" className="h-8" />
           <a
             href={`tel:${BRAND.phoneTel}`}
             className="flex items-center gap-1.5 text-sm font-medium text-[#3A6B4C] hover:opacity-80 transition-opacity"
@@ -535,7 +533,7 @@ export function LandingContent() {
       {/* ── Footer ── */}
       <footer className="border-t border-[#3A6B4C]/10 py-6 px-4 bg-[#F5F0E1]/30">
         <div className="max-w-4xl mx-auto text-center text-[#2B2B2B]/40 text-sm space-y-1">
-          <p style={{ fontFamily: FONTS.display }} className="font-bold text-[#2B2B2B]/60">{BRAND.entity}</p>
+          <img src="/images/squeegee/wordmark.png" alt="Dr. Squeegee" className="h-8 mx-auto mb-1" />
           <p>{BRAND.address}</p>
           <p>
             <a
