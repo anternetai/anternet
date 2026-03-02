@@ -58,6 +58,7 @@ export function SqueegeeNav() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={item.label}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0",
                     isActive
@@ -65,7 +66,7 @@ export function SqueegeeNav() {
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" title={item.label} />
                   <span className="hidden sm:inline">{item.label}</span>
                 </Link>
               )

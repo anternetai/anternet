@@ -1,6 +1,6 @@
 "use client"
 
-import { Users, DollarSign, Phone, AlertCircle } from "lucide-react"
+import { Users, DollarSign, Phone } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatCurrency } from "@/lib/portal/format"
@@ -69,9 +69,9 @@ export function AdminStatsBar({ clients, isLoading }: AdminStatsBarProps) {
       isText: false,
     },
     {
-      title: "Overdue Tasks",
-      value: "0",
-      icon: AlertCircle,
+      title: "Active Clients",
+      value: clients ? String(clients.length) : null,
+      icon: Users,
       isText: false,
     },
   ]

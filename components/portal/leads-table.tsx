@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Search, Download, ChevronDown, ChevronRight, Users } from "lucide-react"
 import useSWR from "swr"
@@ -28,6 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Skeleton } from "@/components/ui/skeleton"
 import { StatusBadge } from "./status-badge"
 import { formatDate, formatPhone, getRelativeTime } from "@/lib/portal/format"
 import { LEAD_STATUS_CONFIG } from "@/lib/portal/constants"
@@ -73,7 +74,18 @@ export function LeadsTable({ clientId }: LeadsTableProps) {
   const search = searchParams.get("search") || ""
   const page = searchParams.get("page") || "1"
 
-  const { data } = useSWR(
+  // Debounced search input
+  const [searchInput, setSearchInput] = useState(search)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  useEffect(() => { setSearchInput(search) }, [search])
+
+  function handleSearchChange(value: string) {
+    setSearchInput(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => updateParam("search", value), 300)
+  }
+
+  const { data, isLoading } = useSWR(
     ["leads", clientId, status, search, page],
     fetchLeads,
     { revalidateOnFocus: false, shouldRetryOnError: false }
@@ -120,8 +132,8 @@ export function LeadsTable({ clientId }: LeadsTableProps) {
           <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
           <Input
             placeholder="Search by name or phone..."
-            value={search}
-            onChange={(e) => updateParam("search", e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -167,7 +179,19 @@ export function LeadsTable({ clientId }: LeadsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {!data?.leads.length ? (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="size-4" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                  <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell className="hidden xl:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                </TableRow>
+              ))
+            ) : !data?.leads.length ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -232,7 +256,7 @@ export function LeadsTable({ clientId }: LeadsTableProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {data?.total ?? 0} leads total
+            {data?.total ?? 0} leads total &middot; Page {currentPage} of {totalPages}
           </p>
           <div className="flex gap-2">
             <Button
@@ -267,13 +291,23 @@ function LeadDetail({ lead }: { lead: Lead }) {
       </div>
       <div>
         <span className="text-muted-foreground">Phone:</span>{" "}
-        <span className="font-medium" style={{ fontVariantNumeric: "tabular-nums" }}>
-          {formatPhone(lead.phone)}
-        </span>
+        {lead.phone ? (
+          <a href={`tel:${lead.phone}`} className="font-medium hover:text-blue-600 dark:hover:text-blue-400" style={{ fontVariantNumeric: "tabular-nums" }}>
+            {formatPhone(lead.phone)}
+          </a>
+        ) : (
+          <span className="font-medium">—</span>
+        )}
       </div>
       <div>
         <span className="text-muted-foreground">Email:</span>{" "}
-        <span className="font-medium">{lead.email || "—"}</span>
+        {lead.email ? (
+          <a href={`mailto:${lead.email}`} className="font-medium hover:text-blue-600 dark:hover:text-blue-400">
+            {lead.email}
+          </a>
+        ) : (
+          <span className="font-medium">—</span>
+        )}
       </div>
       <div>
         <span className="text-muted-foreground">Source:</span>{" "}

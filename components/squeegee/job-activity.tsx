@@ -11,6 +11,7 @@ import {
   MessageSquare,
   ArrowRight,
   Loader2,
+  AlertCircle,
 } from "lucide-react"
 
 const REFRESH_INTERVAL = 30_000 // 30 seconds
@@ -54,6 +55,7 @@ interface Props {
 export function JobActivity({ jobId }: Props) {
   const [items, setItems] = useState<SqueegeeActivityItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
 
   const fetchActivity = useCallback(async () => {
@@ -61,12 +63,14 @@ export function JobActivity({ jobId }: Props) {
       const res = await fetch(`/api/squeegee/jobs/${jobId}/activity`)
       if (res.ok) {
         const data = await res.json()
-        // API returns either a raw array or { activity: [] }
         setItems(Array.isArray(data) ? data : (data.activity || []))
         setLastRefreshed(new Date())
+        setError(false)
+      } else {
+        setError(true)
       }
     } catch {
-      // silent
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -99,6 +103,17 @@ export function JobActivity({ jobId }: Props) {
           <div className="flex items-center justify-center py-6 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             <span className="text-sm">Loading activity…</span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-400 opacity-60" />
+            <p className="text-sm">Failed to load activity.</p>
+            <button
+              onClick={fetchActivity}
+              className="mt-2 text-xs text-[#3A6B4C] hover:underline"
+            >
+              Try again
+            </button>
           </div>
         ) : items.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">

@@ -87,20 +87,26 @@ export function SidebarNav({ user }: SidebarNavProps) {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.href}
-                    tooltip={item.label}
-                  >
-                    <Link href={item.href} onClick={handleNavClick}>
-                      <item.icon className={pathname === item.href ? "size-4 text-orange-500" : "size-4"} />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {filteredNavItems.map((item) => {
+                const isActive =
+                  item.href === "/portal/dashboard"
+                    ? pathname === "/portal/dashboard"
+                    : pathname.startsWith(item.href)
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.label}
+                    >
+                      <Link href={item.href} onClick={handleNavClick}>
+                        <item.icon className={isActive ? "size-4 text-orange-500" : "size-4"} />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -109,20 +115,26 @@ export function SidebarNav({ user }: SidebarNavProps) {
             <SidebarGroupLabel>Management</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                      tooltip={item.label}
-                    >
-                      <Link href={item.href} onClick={handleNavClick}>
-                        <item.icon className={pathname === item.href ? "size-4 text-orange-500" : "size-4"} />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {adminItems.map((item) => {
+                  const isActive =
+                    item.href === "/portal/admin"
+                      ? pathname === "/portal/admin"
+                      : pathname.startsWith(item.href)
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.label}
+                      >
+                        <Link href={item.href} onClick={handleNavClick}>
+                          <item.icon className={isActive ? "size-4 text-orange-500" : "size-4"} />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

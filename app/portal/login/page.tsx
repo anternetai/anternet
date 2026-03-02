@@ -22,6 +22,7 @@ type LoginForm = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const supabase = createClient()
   const [serverError, setServerError] = useState("")
+  const [resetSent, setResetSent] = useState(false)
 
   const {
     register,
@@ -87,6 +88,31 @@ export default function LoginPage() {
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
             </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={async () => {
+                  const email = (document.getElementById("email") as HTMLInputElement)?.value
+                  if (!email) {
+                    setServerError("Enter your email first, then click Forgot password.")
+                    return
+                  }
+                  setServerError("")
+                  await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/portal/reset-password`,
+                  })
+                  setResetSent(true)
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
+            {resetSent && (
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                Check your email for a password reset link.
+              </p>
+            )}
             {serverError && (
               <p className="text-sm text-destructive">{serverError}</p>
             )}

@@ -165,28 +165,30 @@ export default async function InvoicesPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {allInvoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-muted/40 transition-colors">
+                      <tr key={inv.id} className="hover:bg-muted/40 transition-colors group">
                         <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                          {inv.invoice_number}
+                          <Link href={`/crm/jobs/${inv.job_id}`} className="block">{inv.invoice_number}</Link>
                         </td>
                         <td className="px-4 py-3 font-medium">
-                          {inv.job_client_name || "—"}
+                          <Link href={`/crm/jobs/${inv.job_id}`} className="block">{inv.job_client_name || "—"}</Link>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[inv.status]}`}>
-                            {STATUS_LABEL[inv.status]}
-                          </span>
+                          <Link href={`/crm/jobs/${inv.job_id}`} className="block">
+                            <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[inv.status]}`}>
+                              {STATUS_LABEL[inv.status]}
+                            </span>
+                          </Link>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
-                          {formatDate(inv.due_date)}
+                          <Link href={`/crm/jobs/${inv.job_id}`} className="block">{formatDate(inv.due_date)}</Link>
                         </td>
                         <td className="px-4 py-3 text-right font-semibold">
-                          ${Number(inv.amount).toFixed(2)}
+                          <Link href={`/crm/jobs/${inv.job_id}`} className="block">${Number(inv.amount).toFixed(2)}</Link>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Link
                             href={`/crm/jobs/${inv.job_id}`}
-                            className="text-xs text-[#3A6B4C] hover:underline"
+                            className="text-xs text-[#3A6B4C] group-hover:underline"
                           >
                             View Job →
                           </Link>

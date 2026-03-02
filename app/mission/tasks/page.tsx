@@ -175,13 +175,12 @@ export default function TasksPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Tasks</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {tasks.length} tasks ·{" "}
-            <span>
-              Notion:{" "}
-              <Badge variant="outline" className="ml-1 text-xs font-normal">
-                {notionSource === "notion" ? "Connected" : "Mock Data"}
-              </Badge>
-            </span>
+            {tasks.length} tasks
+            {notionSource === "notion" && (
+              <span className="ml-1">
+                · <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground/60">Notion</Badge>
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">

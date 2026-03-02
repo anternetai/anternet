@@ -101,7 +101,7 @@ export default function DashboardPage() {
       icon: FolderKanban,
       color: "text-blue-400",
       bgColor: "bg-blue-400/10",
-      href: "/projects",
+      href: "/mission/projects",
     },
     {
       label: "Tasks Due",
@@ -110,7 +110,7 @@ export default function DashboardPage() {
       icon: CheckSquare,
       color: overdueTasks.length > 0 ? "text-amber-400" : "text-emerald-400",
       bgColor: overdueTasks.length > 0 ? "bg-amber-400/10" : "bg-emerald-400/10",
-      href: "/tasks",
+      href: "/mission/tasks",
     },
     {
       label: "System Health",
@@ -119,7 +119,7 @@ export default function DashboardPage() {
       icon: Activity,
       color: systemsIssues.length > 0 ? "text-amber-400" : "text-emerald-400",
       bgColor: systemsIssues.length > 0 ? "bg-amber-400/10" : "bg-emerald-400/10",
-      href: "/systems",
+      href: "/mission/systems",
     },
     {
       label: "Active Clients",
@@ -128,19 +128,19 @@ export default function DashboardPage() {
       icon: Building2,
       color: "text-purple-400",
       bgColor: "bg-purple-400/10",
-      href: "/pipeline",
+      href: "/mission/pipeline",
     },
   ];
 
   const recentActivity = [
-    { text: "VAPI outbound agent latency spiked — investigating", time: "15 min ago", type: "warning", link: "/systems" },
-    { text: "n8n: Lead enrichment workflow completed 47 leads", time: "1 hour ago", type: "success", link: "/projects" },
-    { text: "Demo booked with Precision Plumbing", time: "2 hours ago", type: "success", link: "/pipeline" },
-    { text: "Meta campaign launched for BlueSky Solar", time: "3 hours ago", type: "info", link: "/projects" },
-    { text: "187 dials completed today (78% of target)", time: "5 hours ago", type: "neutral", link: "/calls" },
-    { text: "Coastal Concrete Coatings onboarding complete", time: "Yesterday", type: "success", link: "/pipeline" },
-    { text: "Supabase RLS audit — 3 policies updated", time: "Yesterday", type: "info", link: "/projects" },
-    { text: "Stripe auto-billing processed 3 invoices", time: "Feb 16", type: "success", link: "/systems" },
+    { text: "VAPI outbound agent latency spiked — investigating", time: "15 min ago", type: "warning", link: "/mission/systems" },
+    { text: "n8n: Lead enrichment workflow completed 47 leads", time: "1 hour ago", type: "success", link: "/mission/projects" },
+    { text: "Demo booked with Precision Plumbing", time: "2 hours ago", type: "success", link: "/mission/pipeline" },
+    { text: "Meta campaign launched for BlueSky Solar", time: "3 hours ago", type: "info", link: "/mission/projects" },
+    { text: "187 dials completed today (78% of target)", time: "5 hours ago", type: "neutral", link: "/mission/calls" },
+    { text: "Coastal Concrete Coatings onboarding complete", time: "Yesterday", type: "success", link: "/mission/pipeline" },
+    { text: "Supabase RLS audit — 3 policies updated", time: "Yesterday", type: "info", link: "/mission/projects" },
+    { text: "Stripe auto-billing processed 3 invoices", time: "Feb 16", type: "success", link: "/mission/systems" },
   ];
 
   const recentProjects = [...mockProjects]

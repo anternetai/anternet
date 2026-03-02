@@ -47,7 +47,8 @@ export default function CallsPage() {
     demosBooked: "",
   });
 
-  const todayLog = callLogs[0];
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayLog = callLogs.find((log) => log.date === todayStr) ?? callLogs[0];
   const todayProgress = Math.min(
     (todayLog.dials / DAILY_DIAL_TARGET) * 100,
     100

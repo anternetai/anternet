@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import useSWR from "swr"
-import { Plus, Loader2 } from "lucide-react"
+import { Plus, Loader2, ChevronDown, ChevronRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -218,11 +218,12 @@ export function ClientTasks({ clientId, pipelineStage }: ClientTasksProps) {
                     className="flex w-full items-center gap-2 text-left"
                   >
                     <span
-                      className={`text-xs font-medium ${
+                      className={`flex items-center gap-1 text-xs font-medium ${
                         isCurrent ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
                       }`}
                     >
-                      {isExpanded ? "\u25BC" : "\u25B6"} {stageConfig.label}
+                      {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                      {stageConfig.label}
                     </span>
                     <span className="text-xs text-muted-foreground/70">
                       {completedCount}/{stageTasks.length}

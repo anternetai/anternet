@@ -103,13 +103,13 @@ export function ClientDetailHeader({ client, metrics }: ClientDetailHeaderProps)
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="icon" className="size-9" asChild>
-                    <Link href={`/portal/settings`}>
+                    <Link href={`/portal/admin/clients/${client.id}`}>
                       <Pencil className="size-4" />
                       <span className="sr-only">Edit</span>
                     </Link>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Edit in Settings</TooltipContent>
+                <TooltipContent>Edit Client</TooltipContent>
               </Tooltip>
             </div>
           </TooltipProvider>
