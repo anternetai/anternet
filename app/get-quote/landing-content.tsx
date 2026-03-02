@@ -18,6 +18,7 @@ import {
   TIMELINES,
 } from "@/lib/squeegee/landing-data"
 import { COLORS, BRAND, FONTS } from "@/lib/squeegee/brand"
+import { FAQ_DATA, FAQSchema } from "./faq-schema"
 
 const VIDEOS = [
   {
@@ -317,6 +318,31 @@ export function LandingContent() {
         </div>
       </section>
 
+      {/* ── FAQ ── */}
+      <section className="max-w-3xl mx-auto px-4 py-16">
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <div className="h-px w-8 bg-[#C8973E]/50" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-[#C8973E]">Common Questions</span>
+          <div className="h-px w-8 bg-[#C8973E]/50" />
+        </div>
+        <h2 style={{ fontFamily: FONTS.display }} className="text-2xl md:text-3xl font-bold text-center mb-10 text-[#2B2B2B]">
+          Frequently Asked Questions
+        </h2>
+        <div className="space-y-4">
+          {FAQ_DATA.map((faq) => (
+            <details key={faq.question} className="bg-white border border-[#3A6B4C]/10 rounded-xl overflow-hidden group">
+              <summary className="p-5 cursor-pointer font-semibold text-[#2B2B2B] hover:bg-[#F5F0E1]/40 transition-colors list-none flex items-center justify-between">
+                {faq.question}
+                <ChevronRight className="h-4 w-4 text-[#2B2B2B]/30 transition-transform group-open:rotate-90" />
+              </summary>
+              <div className="px-5 pb-5 text-sm text-[#2B2B2B]/70 leading-relaxed">
+                {faq.answer}
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+
       {/* ── Multi-Step Quote Form ── */}
       <section id="get-quote" className="max-w-xl mx-auto px-4 py-16">
         <div className="flex items-center justify-center gap-3 mb-3">
@@ -527,11 +553,11 @@ export function LandingContent() {
                     job status updates, and service communications. Message frequency varies. Msg &amp; data
                     rates may apply. Reply STOP to opt out. Reply HELP for help.
                     See our{" "}
-                    <a href="/crm/privacy" target="_blank" className="underline text-[#3A6B4C] hover:text-[#2F5A3F]">
+                    <a href="/privacy" target="_blank" className="underline text-[#3A6B4C] hover:text-[#2F5A3F]">
                       Privacy Policy
                     </a>{" "}
                     and{" "}
-                    <a href="/crm/terms" target="_blank" className="underline text-[#3A6B4C] hover:text-[#2F5A3F]">
+                    <a href="/terms" target="_blank" className="underline text-[#3A6B4C] hover:text-[#2F5A3F]">
                       Terms of Service
                     </a>.
                   </label>
@@ -571,11 +597,11 @@ export function LandingContent() {
             </a>
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">
-            <a href="/crm/privacy" className="hover:text-[#3A6B4C] transition-colors underline">
+            <a href="/privacy" className="hover:text-[#3A6B4C] transition-colors underline">
               Privacy Policy
             </a>
             <span>&middot;</span>
-            <a href="/crm/terms" className="hover:text-[#3A6B4C] transition-colors underline">
+            <a href="/terms" className="hover:text-[#3A6B4C] transition-colors underline">
               Terms of Service
             </a>
           </div>
@@ -584,6 +610,7 @@ export function LandingContent() {
           </p>
         </div>
       </footer>
+      <FAQSchema />
     </>
   )
 }

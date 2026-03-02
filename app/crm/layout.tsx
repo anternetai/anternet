@@ -5,6 +5,7 @@ import { SqueegeeNav } from "@/components/squeegee/squeegee-nav"
 export const metadata: Metadata = {
   title: "Dr. Squeegee | CRM",
   description: "Internal job management portal for Dr. Squeegee — House Calls for a Cleaner Home.",
+  robots: { index: false, follow: false },
   icons: {
     icon: [
       { url: "/favicon-squeegee.svg", type: "image/svg+xml" },

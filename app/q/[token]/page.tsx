@@ -39,6 +39,7 @@ function getAdmin() {
 export const metadata: Metadata = {
   title: 'Your Quote – Dr. Squeegee',
   description: 'Professional house washing service quote from Dr. Squeegee — House Calls for a Cleaner Home.',
+  robots: { index: false, follow: false },
   icons: {
     icon: [
       { url: '/favicon-squeegee.svg', type: 'image/svg+xml' },

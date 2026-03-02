@@ -25,18 +25,18 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://homefieldhub.com"),
-  title: "HomeField Hub | AI-Powered Lead Generation for Contractors",
-  description: "Fill your calendar with qualified appointments. AI-powered lead generation and booking for home service contractors. Pay-per-appointment, no risk.",
-  keywords: ["contractor leads", "roofing leads", "home service marketing", "AI lead generation", "contractor appointments"],
+  metadataBase: new URL("https://www.drsqueegeeclt.com"),
+  title: "Dr. Squeegee | Professional Pressure Washing Charlotte NC",
+  description: "Charlotte's trusted pressure washing specialist. House washing, driveways, patios — done right, every time. Get your free quote today.",
+  keywords: ["pressure washing Charlotte NC", "house washing Charlotte", "power washing Charlotte NC", "driveway cleaning Charlotte", "patio cleaning Charlotte NC", "pressure washing near me", "exterior cleaning Charlotte"],
   icons: {
     icon: "/favicon.svg",
   },
   openGraph: {
-    title: "HomeField Hub | Qualified Leads for Contractors",
-    description: "AI-powered lead generation. Fill your calendar with qualified appointments. Pay-per-appointment.",
+    title: "Dr. Squeegee | Professional Pressure Washing Charlotte NC",
+    description: "Charlotte's trusted pressure washing specialist. House washing, driveways, patios — done right, every time. Get your free quote today.",
     type: "website",
-    url: "https://homefieldhub.com",
+    url: "https://www.drsqueegeeclt.com",
   },
 };
 

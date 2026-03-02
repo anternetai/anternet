@@ -67,13 +67,13 @@ const nextConfig: NextConfig = {
         source: "/",
         has: [{ type: "host", value: "drsqueegeeclt.com" }],
         destination: "/get-quote",
-        permanent: false,
+        permanent: true,
       },
       {
         source: "/",
         has: [{ type: "host", value: "www.drsqueegeeclt.com" }],
         destination: "/get-quote",
-        permanent: false,
+        permanent: true,
       },
     ];
   },
