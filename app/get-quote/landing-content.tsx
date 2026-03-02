@@ -140,6 +140,7 @@ export function LandingContent() {
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
+  const [smsConsent, setSmsConsent] = useState(false)
 
   const totalSteps = 4
   const progress = ((step - 1) / (totalSteps - 1)) * 100
@@ -160,6 +161,8 @@ export function LandingContent() {
           services: [selectedService],
           property_type: propertyType,
           timeline,
+          sms_consent: smsConsent,
+          sms_consent_timestamp: smsConsent ? new Date().toISOString() : undefined,
           utm_source: searchParams.get("utm_source") ?? undefined,
           utm_medium: searchParams.get("utm_medium") ?? undefined,
           utm_campaign: searchParams.get("utm_campaign") ?? undefined,
@@ -509,6 +512,30 @@ export function LandingContent() {
                     placeholder="123 Main St, Charlotte NC or 28214"
                   />
                 </div>
+                {/* SMS Consent Checkbox — Required for A2P 10DLC compliance */}
+                <div className="flex items-start gap-3 pt-1">
+                  <input
+                    type="checkbox"
+                    id="sms-consent"
+                    checked={smsConsent}
+                    onChange={(e) => setSmsConsent(e.target.checked)}
+                    className="mt-1 h-4 w-4 shrink-0 rounded border-[#3A6B4C]/30 text-[#3A6B4C] focus:ring-[#3A6B4C] accent-[#3A6B4C]"
+                  />
+                  <label htmlFor="sms-consent" className="text-xs text-[#2B2B2B]/60 leading-relaxed">
+                    By checking this box, I agree to receive SMS text messages from Dr. Squeegee House Washing
+                    at the phone number provided. Messages may include appointment reminders, quote follow-ups,
+                    job status updates, and service communications. Message frequency varies. Msg &amp; data
+                    rates may apply. Reply STOP to opt out. Reply HELP for help.
+                    See our{" "}
+                    <a href="/crm/privacy" target="_blank" className="underline text-[#3A6B4C] hover:text-[#2F5A3F]">
+                      Privacy Policy
+                    </a>{" "}
+                    and{" "}
+                    <a href="/crm/terms" target="_blank" className="underline text-[#3A6B4C] hover:text-[#2F5A3F]">
+                      Terms of Service
+                    </a>.
+                  </label>
+                </div>
                 <button
                   onClick={handleSubmit}
                   disabled={
@@ -542,6 +569,18 @@ export function LandingContent() {
             >
               {BRAND.phone}
             </a>
+          </p>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <a href="/crm/privacy" className="hover:text-[#3A6B4C] transition-colors underline">
+              Privacy Policy
+            </a>
+            <span>&middot;</span>
+            <a href="/crm/terms" className="hover:text-[#3A6B4C] transition-colors underline">
+              Terms of Service
+            </a>
+          </div>
+          <p className="text-xs text-[#2B2B2B]/25 pt-1">
+            &copy; {new Date().getFullYear()} Dr. Squeegee House Washing. All rights reserved.
           </p>
         </div>
       </footer>

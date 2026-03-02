@@ -16,6 +16,8 @@ interface LeadBody {
   services: string[]
   property_type?: string
   timeline?: string
+  sms_consent?: boolean
+  sms_consent_timestamp?: string
   utm_source?: string
   utm_medium?: string
   utm_campaign?: string
@@ -49,6 +51,8 @@ export async function POST(request: NextRequest) {
       timeline: body.timeline || null,
       source: "landing_page",
       status: "new",
+      sms_consent: body.sms_consent || false,
+      sms_consent_timestamp: body.sms_consent_timestamp || null,
       utm_source: body.utm_source || null,
       utm_medium: body.utm_medium || null,
       utm_campaign: body.utm_campaign || null,
@@ -70,6 +74,7 @@ export async function POST(request: NextRequest) {
       `*Services:* ${serviceList}`,
       body.property_type ? `*Property:* ${body.property_type}` : null,
       body.timeline ? `*Timeline:* ${body.timeline}` : null,
+      body.sms_consent ? `*SMS Consent:* Yes` : `*SMS Consent:* No`,
       body.utm_source ? `*Source:* ${body.utm_source}` : null,
     ]
       .filter(Boolean)

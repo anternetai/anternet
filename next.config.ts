@@ -25,6 +25,28 @@ const nextConfig: NextConfig = {
         has: [{ type: "host", value: "www.drsqueegeeclt.com" }],
         destination: "/crm/:path*",
       },
+      // drsqueegeeclt.com/privacy → /crm/privacy (public legal page)
+      {
+        source: "/privacy",
+        has: [{ type: "host", value: "drsqueegeeclt.com" }],
+        destination: "/crm/privacy",
+      },
+      {
+        source: "/privacy",
+        has: [{ type: "host", value: "www.drsqueegeeclt.com" }],
+        destination: "/crm/privacy",
+      },
+      // drsqueegeeclt.com/terms → /crm/terms (public legal page)
+      {
+        source: "/terms",
+        has: [{ type: "host", value: "drsqueegeeclt.com" }],
+        destination: "/crm/terms",
+      },
+      {
+        source: "/terms",
+        has: [{ type: "host", value: "www.drsqueegeeclt.com" }],
+        destination: "/crm/terms",
+      },
     ];
   },
   async redirects() {
