@@ -89,6 +89,26 @@ export interface DailyCallLog {
   demosBooked: number;
 }
 
+// ─── Training ────────────────────────────────────────────
+export interface TrainingEntry {
+  id: string;
+  created_at: string;
+  course_name: string;
+  module_name: string;
+  key_takeaway: string;
+  real_world_connection: string | null;
+  next_review_at: string;
+  review_count: number;
+  ease: "easy" | "normal" | "hard";
+  completed: boolean;
+}
+
+export interface TrainingCourse {
+  name: string;
+  modules: number;
+  icon: string;
+}
+
 // ─── Systems ──────────────────────────────────────────────
 export type SystemHealth = "Operational" | "Degraded" | "Down" | "Unknown";
 

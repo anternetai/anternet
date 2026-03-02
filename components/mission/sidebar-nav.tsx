@@ -11,6 +11,7 @@ import {
   Kanban,
   Activity,
   Zap,
+  GraduationCap,
 } from "lucide-react"
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const navItems = [
   { label: "Call Tracker", href: "/mission/calls", icon: Phone },
   { label: "Pipeline", href: "/mission/pipeline", icon: Kanban },
   { label: "Systems", href: "/mission/systems", icon: Activity },
+  { label: "Training", href: "/mission/training", icon: GraduationCap },
 ]
 
 export function MissionSidebarNav() {
