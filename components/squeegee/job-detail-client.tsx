@@ -27,6 +27,7 @@ import {
   FileText,
   Clock,
   CalendarPlus,
+  CalendarSync,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -67,6 +68,18 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+async function syncCalendar(jobId: string, action: "create" | "delete") {
+  try {
+    if (action === "create") {
+      await fetch(`/api/squeegee/jobs/${jobId}/gcal`, { method: "POST" })
+    } else {
+      await fetch(`/api/squeegee/jobs/${jobId}/gcal`, { method: "DELETE" })
+    }
+  } catch {
+    // Calendar sync is best-effort — don't block status changes
+  }
+}
+
 export function JobDetailClient({ job: initialJob }: Props) {
   const router = useRouter()
   const [job, setJob] = useState(initialJob)
@@ -74,6 +87,8 @@ export function JobDetailClient({ job: initialJob }: Props) {
   const [editing, setEditing] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [calSyncing, setCalSyncing] = useState(false)
+  const [calSynced, setCalSynced] = useState(!!initialJob.google_calendar_event_id)
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -110,11 +125,27 @@ export function JobDetailClient({ job: initialJob }: Props) {
       .select("*")
       .single()
 
-    if (!error && data) setJob(data as SqueegeeJob)
+    if (!error && data) {
+      const updated = data as SqueegeeJob
+      setJob(updated)
+      // Auto-sync to Google Calendar when scheduled
+      if (nextStatus === "scheduled" && updated.appointment_date) {
+        setCalSyncing(true)
+        await syncCalendar(job.id, "create")
+        setCalSynced(true)
+        setCalSyncing(false)
+      }
+      // Remove calendar event when moving away from scheduled (e.g. back to approved)
+      if (job.status === "scheduled" && nextStatus !== "scheduled" && updated.google_calendar_event_id) {
+        await syncCalendar(job.id, "delete")
+        setCalSynced(false)
+      }
+    }
     setUpdatingStatus(false)
   }
 
   async function setStatus(status: JobStatus) {
+    const wasScheduled = job.status === "scheduled"
     setUpdatingStatus(true)
     const supabase = createClient()
     const { data, error } = await supabase
@@ -124,7 +155,22 @@ export function JobDetailClient({ job: initialJob }: Props) {
       .select("*")
       .single()
 
-    if (!error && data) setJob(data as SqueegeeJob)
+    if (!error && data) {
+      const updated = data as SqueegeeJob
+      setJob(updated)
+      // Auto-sync to Google Calendar when set to scheduled
+      if (status === "scheduled" && updated.appointment_date) {
+        setCalSyncing(true)
+        await syncCalendar(job.id, "create")
+        setCalSynced(true)
+        setCalSyncing(false)
+      }
+      // Remove calendar event when moving away from scheduled
+      if (wasScheduled && status !== "scheduled" && updated.google_calendar_event_id) {
+        await syncCalendar(job.id, "delete")
+        setCalSynced(false)
+      }
+    }
     setUpdatingStatus(false)
   }
 
@@ -336,21 +382,44 @@ export function JobDetailClient({ job: initialJob }: Props) {
 
       {/* Appointment fields (quick-edit when not in full edit mode) */}
       {!editing && showAppointmentFields && (
-        <AppointmentQuickEdit job={job} onUpdate={setJob} />
+        <AppointmentQuickEdit job={job} onUpdate={(updated) => {
+          setJob(updated)
+          // Re-sync calendar if already synced and appointment changed
+          if (updated.google_calendar_event_id && updated.appointment_date) {
+            syncCalendar(updated.id, "create")
+          }
+        }} />
       )}
 
-      {/* Add to Calendar button */}
+      {/* Calendar sync */}
       {job.appointment_date && (
-        <Button
-          asChild
-          variant="outline"
-          className="w-full gap-2"
-        >
-          <a href={`/api/squeegee/jobs/${job.id}/calendar`} download>
-            <CalendarPlus className="h-4 w-4" />
-            Add to Calendar
-          </a>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            disabled={calSyncing}
+            onClick={async () => {
+              setCalSyncing(true)
+              await syncCalendar(job.id, "create")
+              setCalSynced(true)
+              setCalSyncing(false)
+            }}
+          >
+            {calSyncing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : calSynced ? (
+              <CalendarSync className="h-4 w-4 text-green-600" />
+            ) : (
+              <CalendarPlus className="h-4 w-4" />
+            )}
+            {calSynced ? "Synced to Google Calendar" : "Sync to Google Calendar"}
+          </Button>
+          <Button asChild variant="outline" size="icon" title="Download .ics file">
+            <a href={`/api/squeegee/jobs/${job.id}/calendar`} download>
+              <CalendarPlus className="h-4 w-4" />
+            </a>
+          </Button>
+        </div>
       )}
 
       {/* Generate Quote Text */}
