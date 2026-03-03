@@ -381,7 +381,7 @@ export function PowerDialer({
           <CheckCircle2 className="h-4 w-4" />
           <span className="text-sm font-medium">Call Ended</span>
           <span className="text-xs text-muted-foreground tabular-nums">{durationFormatted}</span>
-          <span className="text-xs text-muted-foreground/50">— log outcome below</span>
+          <span className="text-xs text-muted-foreground/50">— log outcome</span>
         </div>
       )}
 

@@ -756,8 +756,11 @@ export function CallCockpit() {
       setCurrentIndex(0)
     }
 
-    // Trigger auto-dial for next lead
-    setAutoDialActive(true)
+    // Only trigger auto-dial if no call is active
+    const cs = currentCallStateRef.current
+    if (cs === "idle" || cs === "disconnected") {
+      setAutoDialActive(true)
+    }
   }, [currentLead, currentIndex, leads.length, mutate, resetForm, submitDisposition])
 
   const handleSync = useCallback(async () => {
