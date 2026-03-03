@@ -275,6 +275,30 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       return
     }
 
+    // CRITICAL: Always clean up any existing call before starting a new one.
+    // This prevents overlapping calls where two audio streams play simultaneously.
+    if (callRef.current) {
+      console.log("[Telnyx] ⚠️ Cleaning up existing call before dialing new one")
+      killAudio()
+      stopTimer()
+      const oldCall = callRef.current
+      callRef.current = null
+      try { oldCall.hangup() } catch {}
+      try {
+        if (oldCall.peer?.instance) {
+          const pc = oldCall.peer.instance as RTCPeerConnection
+          pc.getSenders().forEach((s: RTCRtpSender) => { if (s.track) s.track.stop() })
+          pc.getReceivers().forEach((r: RTCRtpReceiver) => { if (r.track) r.track.stop() })
+          pc.close()
+        }
+      } catch {}
+      try {
+        if (oldCall.localStream) {
+          (oldCall.localStream as MediaStream).getTracks().forEach((t: MediaStreamTrack) => t.stop())
+        }
+      } catch {}
+    }
+
     setError(null)
     updateCallState("connecting")
     setCallDuration(0)
@@ -301,7 +325,7 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       setError(e instanceof Error ? e.message : "Failed to initiate call")
       updateCallState("idle")
     }
-  }, [isReady, updateCallState])
+  }, [isReady, updateCallState, killAudio, stopTimer])
 
   const hangUp = useCallback(() => {
     console.log("[Telnyx] 🔴 Hanging up...")

@@ -205,11 +205,14 @@ export function PowerDialer({
     if (countdown === 0 && localAutoDial && lead && callState === "idle" && !hasAutoDialedRef.current) {
       hasAutoDialedRef.current = true
       setLocalAutoDial(false)
+      // CRITICAL: Reset parent's autoDialActive so it doesn't re-trigger
+      // on any future lead/prop change
+      onCancelAutoDial?.()
       if (lead.phone_number) {
         clearResetAndDial(lead.phone_number)
       }
     }
-  }, [countdown, localAutoDial, lead, callState, clearResetAndDial])
+  }, [countdown, localAutoDial, lead, callState, clearResetAndDial, onCancelAutoDial])
 
   // ─── Cleanup on unmount ──────────────────────────────────────────────────
 
@@ -234,6 +237,7 @@ export function PowerDialer({
   }, [lead, clearResetAndDial])
 
   const handlePause = useCallback(() => {
+    // Stop countdown
     setLocalAutoDial(false)
     setIsCountingDown(false)
     if (countdownRef.current) {
@@ -242,7 +246,11 @@ export function PowerDialer({
     }
     setCountdown(configuredSeconds)
     onCancelAutoDial?.()
-  }, [configuredSeconds, onCancelAutoDial])
+    // Also hang up any active call — Pause means STOP everything
+    if (callState === "connecting" || callState === "ringing" || callState === "connected") {
+      hangUp()
+    }
+  }, [configuredSeconds, onCancelAutoDial, callState, hangUp])
 
   const handleHangUp = useCallback(() => {
     hangUp()

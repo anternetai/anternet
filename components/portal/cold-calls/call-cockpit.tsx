@@ -442,6 +442,8 @@ export function CallCockpit() {
   const [pendingLead, setPendingLead] = useState<DialerLead | null>(null)
 
   const notesRef = useRef<HTMLTextAreaElement>(null)
+  // Track current call state so disposition logic knows if a call is active
+  const currentCallStateRef = useRef<CallState>("idle")
   const sessionTime = useSessionTimer()
 
   const { recordingState, durationMs, startRecording, stopRecording, reset: resetRecording } =
@@ -485,6 +487,7 @@ export function CallCockpit() {
   // Sync recording with call lifecycle
   const handleCallStateChange = useCallback(
     async (state: CallState) => {
+      currentCallStateRef.current = state
       if (state === "connecting") {
         // Start recording when we begin dialing
         lastCallBlobRef.current = null
@@ -670,8 +673,8 @@ export function CallCockpit() {
 
         resetForm()
         resetRecording()
-        setAutoDialActive(true)
 
+        // Advance to next lead
         if (currentIndex < leads.length - 1) {
           setCurrentIndex((i) => i + 1)
         } else {
@@ -681,6 +684,14 @@ export function CallCockpit() {
 
         // Always submit the disposition
         await submitDisposition(leadSnap, outcome, notesSnap, demoDateSnap)
+
+        // Only trigger auto-dial AFTER everything is done and only if no call is active.
+        // Use a short delay so the state updates propagate first.
+        const cs = currentCallStateRef.current
+        if (cs === "idle" || cs === "disconnected") {
+          setAutoDialActive(true)
+        }
+        // If a call is somehow still active, don't auto-dial — user will manually proceed
 
         // Run AI analysis in background if we have a recording (non-blocking)
         if (blob && blob.size > 0 && outcome === "conversation") {
@@ -992,39 +1003,45 @@ export function CallCockpit() {
         {/* Header */}
         {headerBar}
 
-        {/* ── Call Controls Bar (TOP — always visible) ──────────────────────── */}
-        <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
-          {/* Power Dialer — main call button */}
-          <div className="flex-1 min-w-0">
-            {powerDialerBlock}
+        {/* ── Call Controls + Disposition Bar (TOP — always visible) ────────── */}
+        <div className="rounded-xl border bg-card px-4 py-3 shadow-sm space-y-3">
+          {/* Row 1: Dialer + Recording + Skip */}
+          <div className="flex items-center gap-3">
+            {/* Power Dialer — main call button */}
+            <div className="flex-1 min-w-0">
+              {powerDialerBlock}
+            </div>
+
+            {/* Recording indicator (auto-starts with call) */}
+            {recordingIndicator}
+
+            <Separator orientation="vertical" className="h-6 self-auto" />
+
+            {/* Skip → Next Call: logs as no_answer and auto-dials next */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={skipAndDialNext}
+              className="gap-1.5 shrink-0 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500/50 font-medium"
+            >
+              <SkipForward className="size-4" />
+              Skip → Next
+            </Button>
+
+            {/* Silent skip (no disposition, no auto-dial) */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={skipLead}
+              className="gap-1 text-muted-foreground shrink-0"
+            >
+              <SkipForward className="size-3.5" />
+              Pass
+            </Button>
           </div>
 
-          {/* Recording indicator (auto-starts with call) */}
-          {recordingIndicator}
-
-          <Separator orientation="vertical" className="h-6 self-auto" />
-
-          {/* Skip → Next Call: logs as no_answer and auto-dials next */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={skipAndDialNext}
-            className="gap-1.5 shrink-0 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500/50 font-medium"
-          >
-            <SkipForward className="size-4" />
-            Skip → Next
-          </Button>
-
-          {/* Silent skip (no disposition, no auto-dial) */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={skipLead}
-            className="gap-1 text-muted-foreground shrink-0"
-          >
-            <SkipForward className="size-3.5" />
-            Pass
-          </Button>
+          {/* Row 2: Disposition buttons — always visible, right here at the top */}
+          {dispositionBlock}
         </div>
 
         {/* Main 2-column area */}
@@ -1072,31 +1089,14 @@ export function CallCockpit() {
           </div>
         )}
 
-        {/* Bottom Bar: Notes + Disposition */}
+        {/* Bottom Bar: Notes only (disposition is at the top now) */}
         {!powerMode && (
-          <div className="flex flex-wrap items-start gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
-            {/* Notes */}
-            <div className="min-w-[280px] flex-1">
-              <LiveNotes
-                leadId={currentLead?.id ?? null}
-                leadNotes={currentLead?.notes}
-                onNotesChange={setLiveNotes}
-              />
-            </div>
-
-            <Separator orientation="vertical" className="hidden h-auto self-stretch lg:block" />
-
-            {/* Disposition */}
-            <div className="min-w-[280px] flex-1">
-              {dispositionBlock}
-            </div>
-          </div>
-        )}
-
-        {/* Power mode bottom: just disposition */}
-        {powerMode && (
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
-            <div className="flex-1">{dispositionBlock}</div>
+          <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+            <LiveNotes
+              leadId={currentLead?.id ?? null}
+              leadNotes={currentLead?.notes}
+              onNotesChange={setLiveNotes}
+            />
           </div>
         )}
       </div>
@@ -1122,30 +1122,7 @@ export function CallCockpit() {
           <div className="px-1">{recordingIndicator}</div>
         )}
 
-        {/* Script - collapsed */}
-        <MobileSection label="📋 Script" defaultOpen={false}>
-          <Suspense fallback={<Loader2 className="size-5 animate-spin" />}>
-            <ScriptTeleprompter />
-          </Suspense>
-        </MobileSection>
-
-        {/* Objections - collapsed */}
-        <MobileSection label="🛡️ Objection Handler" defaultOpen={false}>
-          <Suspense fallback={<Loader2 className="size-5 animate-spin" />}>
-            <ObjectionHandler />
-          </Suspense>
-        </MobileSection>
-
-        {/* Notes */}
-        <MobileSection label="📝 Live Notes" defaultOpen={true}>
-          <LiveNotes
-            leadId={currentLead?.id ?? null}
-            leadNotes={currentLead?.notes}
-            onNotesChange={setLiveNotes}
-          />
-        </MobileSection>
-
-        {/* Disposition */}
+        {/* Disposition — right after dialer, before everything else */}
         <div className="rounded-xl border bg-card p-3 shadow-sm">
           {dispositionBlock}
           <div className="mt-2 flex justify-end gap-2">
@@ -1164,6 +1141,29 @@ export function CallCockpit() {
             </Button>
           </div>
         </div>
+
+        {/* Notes */}
+        <MobileSection label="📝 Live Notes" defaultOpen={true}>
+          <LiveNotes
+            leadId={currentLead?.id ?? null}
+            leadNotes={currentLead?.notes}
+            onNotesChange={setLiveNotes}
+          />
+        </MobileSection>
+
+        {/* Script - collapsed */}
+        <MobileSection label="📋 Script" defaultOpen={false}>
+          <Suspense fallback={<Loader2 className="size-5 animate-spin" />}>
+            <ScriptTeleprompter />
+          </Suspense>
+        </MobileSection>
+
+        {/* Objections - collapsed */}
+        <MobileSection label="🛡️ Objection Handler" defaultOpen={false}>
+          <Suspense fallback={<Loader2 className="size-5 animate-spin" />}>
+            <ObjectionHandler />
+          </Suspense>
+        </MobileSection>
 
         {/* Controls */}
         <div className="flex items-center justify-between rounded-xl border bg-card px-3 py-2 shadow-sm">
