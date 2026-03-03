@@ -304,7 +304,7 @@ export function PowerDialer({
           </button>
           {showSettings && (
             <div className="flex items-center gap-1">
-              {[3, 5, 7, 10].map((s) => (
+              {[5, 10, 15, 20].map((s) => (
                 <button
                   key={s}
                   onClick={() => { setConfiguredSeconds(s); setCountdown(s) }}

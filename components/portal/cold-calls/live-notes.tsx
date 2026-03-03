@@ -85,32 +85,16 @@ function useAutoSave(leadId: string | null, notes: string, delay = 2000) {
     } catch {}
   }, [])
 
-  // Auto-save to Supabase via disposition API with a debounce
+  // Auto-save notes to sessionStorage with a debounce
   useEffect(() => {
     if (!leadId || !notes) return
     if (timerRef.current) clearTimeout(timerRef.current)
 
-    timerRef.current = setTimeout(async () => {
+    timerRef.current = setTimeout(() => {
       setSaving(true)
-      try {
-        saveToStorage(leadId, notes)
-        // Lightweight "notes autosave" POST
-        await fetch("/api/portal/dialer/disposition", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            leadId,
-            outcome: "conversation",
-            notes,
-            autosave: true,
-          }),
-        })
-        setLastSaved(new Date())
-      } catch {
-        // Silently fail — notes still saved to sessionStorage
-      } finally {
-        setSaving(false)
-      }
+      saveToStorage(leadId, notes)
+      setLastSaved(new Date())
+      setSaving(false)
     }, delay)
 
     return () => {

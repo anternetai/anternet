@@ -38,13 +38,60 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
   const mountedRef = useRef(true)
   const callStateRef = useRef<CallState>("idle")
 
+  // ─── Ringback tone (synthetic North American ringback: 440+480 Hz) ────────
+  const ringbackCtxRef = useRef<AudioContext | null>(null)
+  const ringbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopRingback = useCallback(() => {
+    if (ringbackIntervalRef.current) {
+      clearInterval(ringbackIntervalRef.current)
+      ringbackIntervalRef.current = null
+    }
+    if (ringbackCtxRef.current) {
+      try { ringbackCtxRef.current.close() } catch {}
+      ringbackCtxRef.current = null
+    }
+  }, [])
+
+  const startRingback = useCallback(() => {
+    stopRingback() // clear any existing
+    try {
+      const ctx = new AudioContext()
+      ringbackCtxRef.current = ctx
+
+      const playTone = () => {
+        if (ctx.state === "closed") return
+        const osc1 = ctx.createOscillator()
+        const osc2 = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc1.frequency.value = 440
+        osc2.frequency.value = 480
+        gain.gain.value = 0.08
+        osc1.connect(gain)
+        osc2.connect(gain)
+        gain.connect(ctx.destination)
+        osc1.start()
+        osc2.start()
+        osc1.stop(ctx.currentTime + 2)
+        osc2.stop(ctx.currentTime + 2)
+      }
+
+      // Play immediately, then every 6s (2s tone + 4s silence)
+      playTone()
+      ringbackIntervalRef.current = setInterval(playTone, 6000)
+    } catch (e) {
+      console.warn("[Telnyx] Ringback tone failed:", e)
+    }
+  }, [stopRingback])
+
   // Kill the audio element — stops all sound immediately
   const killAudio = useCallback(() => {
+    stopRingback()
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.srcObject = null
     }
-  }, [])
+  }, [stopRingback])
 
   // Update both the React state and the synchronous ref
   const updateCallState = useCallback((newState: CallState) => {
@@ -186,8 +233,10 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
         case "ringing":
         case "early":
           updateCallState("ringing")
+          startRingback()
           break
         case "active":
+          stopRingback()
           updateCallState("connected")
           startTimer()
           break
@@ -210,6 +259,7 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       mountedRef.current = false
       stopTimer()
       killAudio()
+      stopRingback()
       if (callRef.current) {
         try { callRef.current.hangup() } catch {}
       }
@@ -217,7 +267,7 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
         try { clientRef.current.disconnect() } catch {}
       }
     }
-  }, [startTimer, stopTimer, killAudio])
+  }, [startTimer, stopTimer, killAudio, stopRingback, startRingback])
 
   const makeCall = useCallback((phoneNumber: string) => {
     if (!clientRef.current || !isReady) {

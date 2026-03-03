@@ -34,6 +34,35 @@ export async function POST(req: NextRequest) {
 
   const admin = getAdmin()
 
+  // Handle autosave — only update notes, don't touch disposition/stats
+  if (body.autosave) {
+    const { data: lead } = await admin
+      .from("dialer_leads")
+      .select("notes")
+      .eq("id", leadId)
+      .single()
+
+    if (!lead) {
+      return NextResponse.json({ error: "Lead not found" }, { status: 404 })
+    }
+
+    const dateStr = new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
+    const noteEntry = notes ? `[${dateStr}] draft: ${notes}` : null
+    if (noteEntry) {
+      await admin
+        .from("dialer_leads")
+        .update({ notes: noteEntry })
+        .eq("id", leadId)
+    }
+
+    return NextResponse.json({ success: true, autosaved: true })
+  }
+
   // 1. Get current lead
   const { data: lead, error: leadError } = await admin
     .from("dialer_leads")

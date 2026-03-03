@@ -498,7 +498,8 @@ export function CallCockpit() {
         lastCallBlobRef.current = blob
         resetRecording()
 
-        // Auto-determine disposition based on call duration
+        // Suggest disposition based on call duration — but NEVER auto-submit.
+        // Always let the user choose so they can leave a voicemail, add notes, etc.
         const callSeconds = Math.floor(durationMs / 1000)
         let suggested: ColdCallOutcome
         if (callSeconds < 15) {
@@ -509,33 +510,10 @@ export function CallCockpit() {
           suggested = "conversation"
         }
 
-        // For no_answer and voicemail: auto-submit immediately, advance to next
-        if ((suggested === "no_answer" || suggested === "voicemail") && callLeadRef.current) {
-          const lead = callLeadRef.current
-          callLeadRef.current = null
-
-          // Submit disposition in background (don't await — keep UI snappy)
-          submitDisposition(lead, suggested, "", "").catch((err) =>
-            console.error("Auto-disposition error:", err)
-          )
-
-          setSessionDials((c) => c + 1)
-          resetForm()
-
-          // Advance to next lead
-          if (currentIndex < leads.length - 1) {
-            setCurrentIndex((i) => i + 1)
-          } else {
-            mutate()
-            setCurrentIndex(0)
-          }
-
-          // Trigger auto-dial for next lead
-          setAutoDialActive(true)
-        } else {
-          // Conversation — show suggestion, let user decide
-          setAiSuggestedOutcome(suggested)
-          setSelectedOutcome(suggested)
+        // Show suggestion, let user decide (disposition buttons highlight the suggestion)
+        setAiSuggestedOutcome(suggested)
+        setSelectedOutcome(suggested)
+        if (suggested === "conversation") {
           setShowNoteField(true)
           setTimeout(() => notesRef.current?.focus(), 100)
         }
@@ -745,6 +723,31 @@ export function CallCockpit() {
       resetForm()
     }
   }, [currentIndex, leads.length, resetForm])
+
+  // Quick skip: log as no_answer and auto-dial next lead
+  const skipAndDialNext = useCallback(async () => {
+    if (!currentLead) return
+    const lead = currentLead
+
+    // Submit no_answer disposition in background
+    submitDisposition(lead, "no_answer", "", "").catch((err) =>
+      console.error("Skip disposition error:", err)
+    )
+
+    setSessionDials((c) => c + 1)
+    resetForm()
+
+    // Advance to next lead
+    if (currentIndex < leads.length - 1) {
+      setCurrentIndex((i) => i + 1)
+    } else {
+      await mutate()
+      setCurrentIndex(0)
+    }
+
+    // Trigger auto-dial for next lead
+    setAutoDialActive(true)
+  }, [currentLead, currentIndex, leads.length, mutate, resetForm, submitDisposition])
 
   const handleSync = useCallback(async () => {
     setSyncing(true)
@@ -973,7 +976,7 @@ export function CallCockpit() {
         autoDialActive={autoDialActive}
         onCancelAutoDial={() => setAutoDialActive(false)}
         onCallStateChange={handleCallStateChange}
-        countdownSeconds={5}
+        countdownSeconds={15}
       />
     </Suspense>
   )
@@ -1001,7 +1004,18 @@ export function CallCockpit() {
 
           <Separator orientation="vertical" className="h-6 self-auto" />
 
-          {/* Skip button */}
+          {/* Skip → Next Call: logs as no_answer and auto-dials next */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={skipAndDialNext}
+            className="gap-1.5 shrink-0 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500/50 font-medium"
+          >
+            <SkipForward className="size-4" />
+            Skip → Next
+          </Button>
+
+          {/* Silent skip (no disposition, no auto-dial) */}
           <Button
             variant="ghost"
             size="sm"
@@ -1009,7 +1023,7 @@ export function CallCockpit() {
             className="gap-1 text-muted-foreground shrink-0"
           >
             <SkipForward className="size-3.5" />
-            Skip
+            Pass
           </Button>
         </div>
 
@@ -1134,10 +1148,19 @@ export function CallCockpit() {
         {/* Disposition */}
         <div className="rounded-xl border bg-card p-3 shadow-sm">
           {dispositionBlock}
-          <div className="mt-2 flex justify-end">
+          <div className="mt-2 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={skipAndDialNext}
+              className="gap-1.5 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 font-medium"
+            >
+              <SkipForward className="size-3.5" />
+              Skip → Next
+            </Button>
             <Button variant="ghost" size="sm" onClick={skipLead} className="gap-1 text-muted-foreground">
               <SkipForward className="size-3.5" />
-              Skip
+              Pass
             </Button>
           </div>
         </div>
