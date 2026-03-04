@@ -23,12 +23,19 @@ interface UseSessionRecordingOptions {
   callHistoryId?: string
 }
 
+export type WebcamCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right"
+
 interface UseSessionRecordingReturn {
   state: SessionRecordingState
   durationMs: number
   error: string | null
   startRecording: () => Promise<void>
   stopRecording: () => Promise<void>
+  /** Live compositing canvas ref — render this for recording preview */
+  previewCanvasRef: React.RefObject<HTMLCanvasElement | null>
+  /** Which corner the webcam overlay sits in */
+  webcamCorner: WebcamCorner
+  setWebcamCorner: (corner: WebcamCorner) => void
 }
 
 const WEBCAM_SIZE = 200 // pixels for the round webcam overlay
@@ -53,6 +60,7 @@ export function useSessionRecording({
   const [state, setState] = useState<SessionRecordingState>("idle")
   const [durationMs, setDurationMs] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [webcamCorner, setWebcamCorner] = useState<WebcamCorner>("bottom-right")
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -62,6 +70,10 @@ export function useSessionRecording({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const animFrameRef = useRef<number>(0)
   const screenVideoRef = useRef<HTMLVideoElement | null>(null)
+  const webcamCornerRef = useRef<WebcamCorner>(webcamCorner)
+
+  // Keep ref in sync with state so draw loop reads latest value
+  webcamCornerRef.current = webcamCorner
 
   // Cleanup on unmount
   useEffect(() => {
@@ -138,8 +150,9 @@ export function useSessionRecording({
         if (webcamSource) {
           const size = WEBCAM_SIZE
           const margin = 20
-          const x = canvas.width - size - margin
-          const y = canvas.height - size - margin
+          const corner = webcamCornerRef.current
+          const x = corner.includes("right") ? canvas.width - size - margin : margin
+          const y = corner.includes("bottom") ? canvas.height - size - margin : margin
 
           ctx.save()
           // Round clip
@@ -325,5 +338,8 @@ export function useSessionRecording({
     error,
     startRecording,
     stopRecording,
+    previewCanvasRef: canvasRef,
+    webcamCorner,
+    setWebcamCorner,
   }
 }

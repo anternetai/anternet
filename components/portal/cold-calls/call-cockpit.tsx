@@ -57,7 +57,7 @@ import { LiveNotes } from "./live-notes"
 import { KeyboardShortcuts } from "./keyboard-shortcuts"
 import { AIAnalysisPanel } from "./ai-analysis-panel"
 import { useMixedAudioRecording } from "@/lib/dialer/use-mixed-audio-recording"
-import { useSessionRecording, type SessionRecordingState } from "@/lib/dialer/use-session-recording"
+import { useSessionRecording, type SessionRecordingState, type WebcamCorner } from "@/lib/dialer/use-session-recording"
 import type { WebcamPiPHandle } from "./webcam-pip"
 
 // ─── Safe lazy import helper ───────────────────────────────────────────────────
@@ -418,6 +418,83 @@ function SessionRecButton({
   )
 }
 
+// ─── Recording Preview Monitor ────────────────────────────────────────────────
+
+const CORNER_LABELS: Record<WebcamCorner, string> = {
+  "top-left": "TL",
+  "top-right": "TR",
+  "bottom-left": "BL",
+  "bottom-right": "BR",
+}
+
+function RecordingPreview({
+  canvasRef,
+  corner,
+  onCornerChange,
+}: {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
+  corner: WebcamCorner
+  onCornerChange: (c: WebcamCorner) => void
+}) {
+  const previewRef = useRef<HTMLCanvasElement>(null)
+  const animRef = useRef<number>(0)
+
+  // Mirror the compositing canvas onto a smaller preview canvas
+  useEffect(() => {
+    const draw = () => {
+      const src = canvasRef.current
+      const dst = previewRef.current
+      if (src && dst) {
+        const ctx = dst.getContext("2d")
+        if (ctx) {
+          // Scale to preview size while maintaining aspect ratio
+          const aspect = src.width / (src.height || 1)
+          dst.width = 320
+          dst.height = Math.round(320 / aspect)
+          ctx.drawImage(src, 0, 0, dst.width, dst.height)
+        }
+      }
+      animRef.current = requestAnimationFrame(draw)
+    }
+    animRef.current = requestAnimationFrame(draw)
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current) }
+  }, [canvasRef])
+
+  return (
+    <div className="fixed bottom-4 left-4 z-[9998] flex flex-col gap-1.5 rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl shadow-black/60 overflow-hidden">
+      {/* Preview header */}
+      <div className="flex items-center justify-between px-2.5 py-1.5 bg-black/40">
+        <div className="flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-[10px] font-medium text-white/60">Recording Preview</span>
+        </div>
+        {/* Corner position picker */}
+        <div className="flex gap-0.5">
+          {(Object.keys(CORNER_LABELS) as WebcamCorner[]).map((c) => (
+            <button
+              key={c}
+              onClick={() => onCornerChange(c)}
+              className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors ${
+                corner === c
+                  ? "bg-orange-500/30 text-orange-400"
+                  : "text-white/30 hover:text-white/60 hover:bg-white/5"
+              }`}
+              title={`Move webcam to ${c.replace("-", " ")}`}
+            >
+              {CORNER_LABELS[c]}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Canvas preview */}
+      <canvas
+        ref={previewRef}
+        className="w-80 bg-black"
+      />
+    </div>
+  )
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function CallCockpit() {
@@ -478,6 +555,9 @@ export function CallCockpit() {
     error: sessionRecError,
     startRecording: startSessionRec,
     stopRecording: stopSessionRec,
+    previewCanvasRef: sessionPreviewCanvasRef,
+    webcamCorner: sessionWebcamCorner,
+    setWebcamCorner: setSessionWebcamCorner,
   } = useSessionRecording({
     webcamStreamRef: webcamStreamForSessionRef,
     webcamCanvasRef: webcamCanvasForSessionRef,
@@ -1260,6 +1340,15 @@ export function CallCockpit() {
 
       {/* ── Overlays ─────────────────────────────────────────────────────────── */}
       <KeyboardShortcuts open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      {/* Recording preview monitor — shown while session recording is active */}
+      {sessionRecState === "recording" && (
+        <RecordingPreview
+          canvasRef={sessionPreviewCanvasRef}
+          corner={sessionWebcamCorner}
+          onCornerChange={setSessionWebcamCorner}
+        />
+      )}
 
       <AIAnalysisPanel
         open={aiPanelOpen}
