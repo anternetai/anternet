@@ -124,19 +124,19 @@ export const STATE_TIMEZONE_MAP: Record<string, DialerTimezone> = {
 }
 
 // Timezone cascade schedule: ET hour → timezone to call
+// Strategy: hit each timezone at 10 AM and 4 PM local time (best cold call hours)
+// Fill remaining hours with best available timezone still in business hours
 export const TIMEZONE_SCHEDULE: { etHour: number; timezone: DialerTimezone; label: string }[] = [
-  { etHour: 8, timezone: "ET", label: "8-9 AM ET → Eastern leads" },
-  { etHour: 9, timezone: "ET", label: "9-10 AM ET → Eastern leads" },
-  { etHour: 10, timezone: "CT", label: "10-11 AM ET → Central leads (9 AM their time)" },
-  { etHour: 11, timezone: "MT", label: "11 AM-12 PM ET → Mountain leads (9 AM their time)" },
-  { etHour: 12, timezone: "PT", label: "12-1 PM ET → Pacific leads (9 AM their time)" },
+  { etHour: 10, timezone: "ET", label: "10-11 AM ET → Eastern leads (10 AM their time)" },
+  { etHour: 11, timezone: "CT", label: "11 AM-12 PM ET → Central leads (10 AM their time)" },
+  { etHour: 12, timezone: "MT", label: "12-1 PM ET → Mountain leads (10 AM their time)" },
   { etHour: 13, timezone: "PT", label: "1-2 PM ET → Pacific leads (10 AM their time)" },
-  { etHour: 14, timezone: "MT", label: "2-3 PM ET → Mountain leads (12 PM their time)" },
+  { etHour: 14, timezone: "ET", label: "2-3 PM ET → Eastern leads (2 PM their time)" },
   { etHour: 15, timezone: "CT", label: "3-4 PM ET → Central leads (2 PM their time)" },
-  { etHour: 16, timezone: "PT", label: "4-5 PM ET → Pacific leads (1 PM their time)" },
-  { etHour: 17, timezone: "MT", label: "5-6 PM ET → Mountain leads (3 PM their time)" },
-  { etHour: 18, timezone: "CT", label: "6-7 PM ET → Central leads (5 PM their time)" },
-  { etHour: 19, timezone: "ET", label: "7-8 PM ET → Eastern leads (7 PM their time)" },
+  { etHour: 16, timezone: "ET", label: "4-5 PM ET → Eastern leads (4 PM their time)" },
+  { etHour: 17, timezone: "CT", label: "5-6 PM ET → Central leads (4 PM their time)" },
+  { etHour: 18, timezone: "MT", label: "6-7 PM ET → Mountain leads (4 PM their time)" },
+  { etHour: 19, timezone: "PT", label: "7-8 PM ET → Pacific leads (4 PM their time)" },
 ]
 
 export function getCurrentETHour(): number {
