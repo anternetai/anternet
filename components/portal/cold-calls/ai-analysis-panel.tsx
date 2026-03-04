@@ -163,7 +163,7 @@ export function AIAnalysisPanel({
             <Sparkles className="size-4 text-orange-500" />
             AI Call Analysis
             {businessName && (
-              <span className="text-sm font-normal text-muted-foreground">
+              <span className="text-sm font-normal text-muted-foreground" data-pii>
                 — {businessName}
               </span>
             )}
@@ -256,7 +256,7 @@ export function AIAnalysisPanel({
                     AI-Generated Notes
                   </label>
                   {!isEditing ? (
-                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
+                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5" data-pii>
                       <p className="whitespace-pre-wrap text-sm">
                         {result.suggestedNotes || (
                           <span className="text-muted-foreground">No notes generated</span>
@@ -311,7 +311,7 @@ export function AIAnalysisPanel({
                     <label className="text-xs font-medium text-muted-foreground">
                       Call Summary
                     </label>
-                    <Card>
+                    <Card data-pii>
                       <CardContent className="py-3">
                         <p className="text-sm text-muted-foreground">{result.summary}</p>
                       </CardContent>
@@ -325,7 +325,7 @@ export function AIAnalysisPanel({
                     <label className="text-xs font-medium text-muted-foreground">
                       Key Points
                     </label>
-                    <ul className="space-y-1">
+                    <ul className="space-y-1" data-pii>
                       {result.keyPoints.map((point, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm">
                           <Check className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
@@ -342,7 +342,7 @@ export function AIAnalysisPanel({
                     <label className="text-xs font-medium text-muted-foreground">
                       Objections Raised
                     </label>
-                    <ul className="space-y-1">
+                    <ul className="space-y-1" data-pii>
                       {result.objections.map((obj, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm">
                           <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-orange-400" />
@@ -359,7 +359,7 @@ export function AIAnalysisPanel({
                     <label className="text-xs font-medium text-muted-foreground">
                       Recommended Next Steps
                     </label>
-                    <ul className="space-y-1">
+                    <ul className="space-y-1" data-pii>
                       {result.nextSteps.map((step, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm">
                           <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-blue-400" />
@@ -373,11 +373,13 @@ export function AIAnalysisPanel({
 
               {/* ── Transcript Tab ───────────────────────── */}
               <TabsContent value="transcript" className="flex-1 overflow-y-auto px-4 pb-4">
-                <CallTranscript
-                  segments={transcriptSegments}
-                  businessName={businessName}
-                  className="border-0 shadow-none p-0"
-                />
+                <div data-pii>
+                  <CallTranscript
+                    segments={transcriptSegments}
+                    businessName={businessName}
+                    className="border-0 shadow-none p-0"
+                  />
+                </div>
               </TabsContent>
 
               {/* ── Coaching Tab ─────────────────────────── */}

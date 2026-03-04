@@ -264,6 +264,7 @@ export function CoachingPanel({ grades, tips = [], className }: CoachingPanelPro
                       return (
                         <div
                           key={i}
+                          data-pii
                           className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
                             TIP_COLOR[tip.severity]
                           }`}

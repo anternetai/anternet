@@ -274,7 +274,7 @@ function LeadInfoCard({ lead }: { lead: DialerLead }) {
         </a>
       )}
       <div className="flex items-center gap-1.5">
-        {lead.state && <Badge variant="secondary" className="text-xs">{lead.state}</Badge>}
+        {lead.state && <Badge data-pii variant="secondary" className="text-xs">{lead.state}</Badge>}
         {lead.timezone && (
           <Badge variant="outline" className="font-mono text-xs">{lead.timezone}</Badge>
         )}
@@ -996,7 +996,7 @@ export function CallCockpit() {
       </div>
 
       {showNoteField && (
-        <div className="space-y-2 rounded-lg border bg-muted/20 p-2.5">
+        <div data-pii className="space-y-2 rounded-lg border bg-muted/20 p-2.5">
           <Textarea
             ref={notesRef}
             placeholder="Add notes about this call..."
@@ -1155,7 +1155,7 @@ export function CallCockpit() {
 
         {/* Bottom Bar: Notes only (disposition is at the top now) */}
         {!powerMode && (
-          <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+          <div data-pii className="rounded-xl border bg-card px-4 py-3 shadow-sm">
             <LiveNotes
               leadId={currentLead?.id ?? null}
               leadNotes={currentLead?.notes}
@@ -1208,11 +1208,13 @@ export function CallCockpit() {
 
         {/* Notes */}
         <MobileSection label="📝 Live Notes" defaultOpen={true}>
-          <LiveNotes
-            leadId={currentLead?.id ?? null}
-            leadNotes={currentLead?.notes}
-            onNotesChange={setLiveNotes}
-          />
+          <div data-pii>
+            <LiveNotes
+              leadId={currentLead?.id ?? null}
+              leadNotes={currentLead?.notes}
+              onNotesChange={setLiveNotes}
+            />
+          </div>
         </MobileSection>
 
         {/* Script - collapsed */}

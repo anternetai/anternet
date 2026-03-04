@@ -217,7 +217,7 @@ export function LiveNotes({ leadId, leadNotes, onNotesChange, className }: LiveN
             )}
           </button>
           {showPrevious && (
-            <div className="border-t border-muted px-3 pb-2.5 pt-2">
+            <div className="border-t border-muted px-3 pb-2.5 pt-2" data-pii>
               <p className="whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed">
                 {leadNotes}
               </p>
@@ -249,19 +249,21 @@ export function LiveNotes({ leadId, leadNotes, onNotesChange, className }: LiveN
       </div>
 
       {/* Freetext area */}
-      <Textarea
-        ref={textareaRef}
-        placeholder={
-          leadId
-            ? "Type notes here — auto-saved as you type..."
-            : "Select a lead to take notes..."
-        }
-        value={notes}
-        onChange={(e) => handleChange(e.target.value)}
-        disabled={!leadId}
-        rows={4}
-        className="resize-none text-sm leading-relaxed placeholder:text-muted-foreground/50"
-      />
+      <div data-pii>
+        <Textarea
+          ref={textareaRef}
+          placeholder={
+            leadId
+              ? "Type notes here — auto-saved as you type..."
+              : "Select a lead to take notes..."
+          }
+          value={notes}
+          onChange={(e) => handleChange(e.target.value)}
+          disabled={!leadId}
+          rows={4}
+          className="resize-none text-sm leading-relaxed placeholder:text-muted-foreground/50"
+        />
+      </div>
     </div>
   )
 }

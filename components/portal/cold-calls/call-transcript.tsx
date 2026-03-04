@@ -116,7 +116,7 @@ export function CallTranscript({
             <MessageSquare className="size-4 text-orange-500" />
             Transcript
             {businessName && (
-              <span className="text-xs font-normal text-muted-foreground">— {businessName}</span>
+              <span className="text-xs font-normal text-muted-foreground" data-pii>— {businessName}</span>
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -205,7 +205,7 @@ export function CallTranscript({
                       </div>
 
                       {/* Text */}
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1" data-pii>
                         <p className="leading-relaxed text-sm">{seg.text}</p>
                       </div>
 
