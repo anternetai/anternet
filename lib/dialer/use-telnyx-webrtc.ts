@@ -223,12 +223,6 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
         return
       }
 
-      // Attach remote audio stream when available
-      if (call.remoteStream && audioRef.current) {
-        audioRef.current.srcObject = call.remoteStream
-        remoteStreamRef.current = call.remoteStream as MediaStream
-      }
-
       switch (state) {
         case "trying":
         case "requesting":
@@ -236,11 +230,19 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
           break
         case "ringing":
         case "early":
+          // DO NOT attach remoteStream here — "early" state carries early media
+          // (voicemail greetings, carrier announcements) which would play while
+          // we're still ringing. The synthetic ringback handles audio feedback.
           updateCallState("ringing")
           startRingback()
           break
         case "active":
           stopRingback()
+          // ONLY attach remote audio when call is truly answered
+          if (call.remoteStream && audioRef.current) {
+            audioRef.current.srcObject = call.remoteStream
+            remoteStreamRef.current = call.remoteStream as MediaStream
+          }
           updateCallState("connected")
           startTimer()
           break
@@ -251,6 +253,10 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
           // CRITICAL: kill audio immediately so user doesn't hear anything
           killAudio()
           stopTimer()
+          // Stop all tracks on the remote stream to prevent zombie audio
+          if (remoteStreamRef.current) {
+            try { remoteStreamRef.current.getTracks().forEach((t) => t.stop()) } catch {}
+          }
           callRef.current = null
           remoteStreamRef.current = null
           updateCallState("disconnected")
@@ -280,12 +286,21 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       return
     }
 
-    // CRITICAL: Always clean up any existing call before starting a new one.
-    // This prevents overlapping calls where two audio streams play simultaneously.
+    // CRITICAL: Always kill audio and stop ringback FIRST — before anything else.
+    // This ensures no sound from a previous call bleeds into the new one,
+    // even if callRef was already nulled by a prior hangup/destroy event.
+    killAudio()
+    stopTimer()
+
+    // Also stop any tracks on the previous remoteStream to prevent zombie audio
+    if (remoteStreamRef.current) {
+      try { remoteStreamRef.current.getTracks().forEach((t) => t.stop()) } catch {}
+      remoteStreamRef.current = null
+    }
+
+    // Clean up any existing call before starting a new one.
     if (callRef.current) {
       console.log("[Telnyx] ⚠️ Cleaning up existing call before dialing new one")
-      killAudio()
-      stopTimer()
       const oldCall = callRef.current
       callRef.current = null
       try { oldCall.hangup() } catch {}
