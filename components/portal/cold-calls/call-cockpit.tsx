@@ -820,19 +820,49 @@ export function CallCockpit() {
         const data = await res.json()
 
         const analysis = data.analysis
-        setAiResult({
-          panelState: "ready",
-          suggestedDisposition: analysis?.disposition || (outcome as DialerOutcome),
-          suggestedNotes: analysis?.autoNotes,
-          suggestedFollowUpDate: analysis?.nextCallAt,
-          summary: analysis?.summary || data.rawTranscript || "Transcription complete.",
-          keyPoints: analysis?.keyPoints || [],
-          objections: analysis?.objections || [],
-          nextSteps: analysis?.nextSteps || [],
-          grades: analysis?.coaching?.grades,
-          coachingTips: analysis?.coaching?.tips,
-          rawTranscript: data.rawTranscript,
-        })
+        const aiDisposition = analysis?.disposition || (outcome as DialerOutcome)
+
+        // Quick outcomes that don't need user review when AI agrees
+        const quickOutcomes: string[] = ["no_answer", "voicemail", "wrong_number", "not_interested"]
+        const userAlreadyLogged = outcome as string
+        const aiAgrees = aiDisposition === userAlreadyLogged
+
+        if (aiAgrees && quickOutcomes.includes(userAlreadyLogged)) {
+          // AI matches what user already logged — auto-accept, no interaction needed.
+          // The disposition is already saved from handleDisposition().
+          // The recording + analysis are already saved by the transcribe endpoint.
+          setAiResult({
+            panelState: "accepted",
+            suggestedDisposition: aiDisposition,
+            suggestedNotes: analysis?.autoNotes,
+            suggestedFollowUpDate: analysis?.nextCallAt,
+            summary: analysis?.summary || data.rawTranscript || "Transcription complete.",
+            keyPoints: analysis?.keyPoints || [],
+            objections: analysis?.objections || [],
+            nextSteps: analysis?.nextSteps || [],
+            grades: analysis?.coaching?.grades,
+            coachingTips: analysis?.coaching?.tips,
+            rawTranscript: data.rawTranscript,
+          })
+          setPendingLead(null)
+          // Auto-close the panel after a brief flash
+          setTimeout(() => setAiPanelOpen(false), 1500)
+        } else {
+          // AI disagrees or it's a meaningful outcome — show panel for review
+          setAiResult({
+            panelState: "ready",
+            suggestedDisposition: aiDisposition,
+            suggestedNotes: analysis?.autoNotes,
+            suggestedFollowUpDate: analysis?.nextCallAt,
+            summary: analysis?.summary || data.rawTranscript || "Transcription complete.",
+            keyPoints: analysis?.keyPoints || [],
+            objections: analysis?.objections || [],
+            nextSteps: analysis?.nextSteps || [],
+            grades: analysis?.coaching?.grades,
+            coachingTips: analysis?.coaching?.tips,
+            rawTranscript: data.rawTranscript,
+          })
+        }
       } catch {
         setAiResult({
           panelState: "ready",

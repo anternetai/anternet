@@ -349,27 +349,39 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
 
   const hangUp = useCallback(() => {
     console.log("[Telnyx] 🔴 Hanging up...")
-    
-    // 1. Kill audio FIRST — stop all sound immediately
+
+    // 1. Kill audio element FIRST — stop all sound immediately
     killAudio()
-    
+
     // 2. Stop the timer
     stopTimer()
-    
-    // 3. Tell the SDK to hang up the SIP session
+
+    // 3. Stop remote stream tracks to kill any lingering audio
+    if (remoteStreamRef.current) {
+      try { remoteStreamRef.current.getTracks().forEach((t) => t.stop()) } catch {}
+    }
+
+    // 4. Null refs BEFORE calling SDK hangup — blocks any further events
     const call = callRef.current
     callRef.current = null
     remoteStreamRef.current = null
-    
+
     if (call) {
+      // Stop the call's own remote stream (may differ from our ref)
+      try {
+        if (call.remoteStream) {
+          (call.remoteStream as MediaStream).getTracks().forEach((t: MediaStreamTrack) => t.stop())
+        }
+      } catch {}
+
       try {
         // The SDK hangup() sends a SIP BYE
         call.hangup()
       } catch (e) {
         console.error("[Telnyx] Hangup error:", e)
       }
-      
-      // Also try to stop all media tracks on the call's peer connection
+
+      // Stop all media tracks on the call's peer connection
       try {
         if (call.peer?.instance) {
           const pc = call.peer.instance as RTCPeerConnection
@@ -382,16 +394,16 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
           pc.close()
         }
       } catch {}
-      
-      // Try stopping local stream tracks
+
+      // Stop local stream tracks
       try {
         if (call.localStream) {
           (call.localStream as MediaStream).getTracks().forEach((t: MediaStreamTrack) => t.stop())
         }
       } catch {}
     }
-    
-    // 4. Update state
+
+    // 5. Update state
     updateCallState("disconnected")
     setIsMuted(false)
   }, [killAudio, stopTimer, updateCallState])
