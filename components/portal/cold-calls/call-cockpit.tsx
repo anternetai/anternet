@@ -610,6 +610,8 @@ export function CallCockpit() {
   const notesRef = useRef<HTMLTextAreaElement>(null)
   // Track current call state so disposition logic knows if a call is active
   const currentCallStateRef = useRef<CallState>("idle")
+  // Expose PowerDialer's hangUp so we can end calls when logging disposition
+  const hangUpRef = useRef<(() => void) | null>(null)
   const sessionTime = useSessionTimer()
 
   // Remote audio stream ref — set by PowerDialer's onRemoteStream callback
@@ -897,6 +899,13 @@ export function CallCockpit() {
         const notesSnap = liveNotes || notes
         const demoDateSnap = demoDate
 
+        // CRITICAL: If a call is still active (e.g. voicemail playing), hang up FIRST.
+        // Without this, voicemail audio keeps playing after logging disposition.
+        const cs = currentCallStateRef.current
+        if (cs === "connecting" || cs === "ringing" || cs === "connected") {
+          hangUpRef.current?.()
+        }
+
         // Stop any live recording and grab the blob
         let blob: Blob | null = lastCallBlobRef.current
         lastCallBlobRef.current = null
@@ -921,13 +930,8 @@ export function CallCockpit() {
         // Always submit the disposition
         await submitDisposition(leadSnap, outcome, notesSnap, demoDateSnap)
 
-        // Only trigger auto-dial AFTER everything is done and only if no call is active.
-        // Use a short delay so the state updates propagate first.
-        const cs = currentCallStateRef.current
-        if (cs === "idle" || cs === "disconnected") {
-          setAutoDialActive(true)
-        }
-        // If a call is somehow still active, don't auto-dial — user will manually proceed
+        // Trigger auto-dial — call was just hung up above so state should be disconnected/idle
+        setAutoDialActive(true)
 
         // Run AI analysis in background if we have a recording (non-blocking)
         // Upload for ALL outcomes that have recordings (not just conversation)
@@ -1260,6 +1264,7 @@ export function CallCockpit() {
         onCancelAutoDial={() => setAutoDialActive(false)}
         onCallStateChange={handleCallStateChange}
         onRemoteStream={handleRemoteStream}
+        hangUpRef={hangUpRef}
         countdownSeconds={15}
       />
     </Suspense>

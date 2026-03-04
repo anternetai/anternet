@@ -29,6 +29,8 @@ interface PowerDialerProps {
   onCallStateChange?: (state: CallState) => void
   /** Called when remote audio stream becomes available or is cleared */
   onRemoteStream?: (stream: MediaStream | null) => void
+  /** Ref that exposes hangUp to parent — so cockpit can end call on disposition */
+  hangUpRef?: React.MutableRefObject<(() => void) | null>
   className?: string
 }
 
@@ -80,6 +82,7 @@ export function PowerDialer({
   onCancelAutoDial,
   onCallStateChange,
   onRemoteStream,
+  hangUpRef,
   className,
 }: PowerDialerProps) {
   const [countdown, setCountdown] = useState(countdownSeconds)
@@ -105,6 +108,12 @@ export function PowerDialer({
     setCallStateIdle,
     remoteStreamRef,
   } = useTelnyxWebRTC()
+
+  // Expose hangUp to parent via ref so cockpit can end call on disposition
+  useEffect(() => {
+    if (hangUpRef) hangUpRef.current = hangUp
+    return () => { if (hangUpRef) hangUpRef.current = null }
+  }, [hangUp, hangUpRef])
 
   const makeCall = useCallback(
     (phoneNumber: string) => webrtcMakeCall(phoneNumber),
