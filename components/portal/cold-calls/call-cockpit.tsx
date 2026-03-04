@@ -418,7 +418,7 @@ function SessionRecButton({
   )
 }
 
-// ─── Recording Preview Monitor ────────────────────────────────────────────────
+// ─── Recording Preview (popup window) ─────────────────────────────────────────
 
 const CORNER_LABELS: Record<WebcamCorner, string> = {
   "top-left": "TL",
@@ -433,98 +433,153 @@ const SIZE_LABELS: Record<WebcamSize, string> = {
   large: "L",
 }
 
-function RecordingPreview({
-  canvasRef,
-  corner,
-  onCornerChange,
-  size,
-  onSizeChange,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
-  corner: WebcamCorner
-  onCornerChange: (c: WebcamCorner) => void
-  size: WebcamSize
-  onSizeChange: (s: WebcamSize) => void
-}) {
-  const previewRef = useRef<HTMLCanvasElement>(null)
+/**
+ * Opens a separate browser window showing the live recording preview.
+ * This keeps the preview OFF the recorded screen (no Inception effect).
+ * The popup can be dragged to a second monitor.
+ */
+function useRecordingPreviewWindow(
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  isRecording: boolean,
+  corner: WebcamCorner,
+  onCornerChange: (c: WebcamCorner) => void,
+  size: WebcamSize,
+  onSizeChange: (s: WebcamSize) => void,
+) {
+  const popupRef = useRef<Window | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Mirror the compositing canvas at ~5fps (low CPU)
-  useEffect(() => {
-    const PREVIEW_W = 480
-    intervalRef.current = setInterval(() => {
-      const src = canvasRef.current
-      const dst = previewRef.current
-      if (src && dst && src.width > 0) {
-        const ctx = dst.getContext("2d")
-        if (ctx) {
-          const aspect = src.width / (src.height || 1)
-          if (dst.width !== PREVIEW_W) dst.width = PREVIEW_W
-          const h = Math.round(PREVIEW_W / aspect)
-          if (dst.height !== h) dst.height = h
-          ctx.drawImage(src, 0, 0, dst.width, dst.height)
-        }
-      }
-    }, 200)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [canvasRef])
+  // Store callbacks in refs so the popup event handlers always read latest
+  const onCornerRef = useRef(onCornerChange)
+  const onSizeRef = useRef(onSizeChange)
+  onCornerRef.current = onCornerChange
+  onSizeRef.current = onSizeChange
 
-  return (
-    <div className="fixed bottom-4 left-4 z-[9998] flex flex-col rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl shadow-black/60 overflow-hidden">
-      {/* Preview header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-black/40">
-        <div className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-xs font-medium text-white/60">Recording Preview</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Webcam size picker */}
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-white/30 mr-0.5">Size</span>
-            {(Object.keys(SIZE_LABELS) as WebcamSize[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => onSizeChange(s)}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors ${
-                  size === s
-                    ? "bg-blue-500/30 text-blue-400"
-                    : "text-white/30 hover:text-white/60 hover:bg-white/5"
-                }`}
-                title={`${s} webcam overlay`}
-              >
-                {SIZE_LABELS[s]}
-              </button>
-            ))}
+  useEffect(() => {
+    if (!isRecording) {
+      // Close popup when recording stops
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+      if (popupRef.current && !popupRef.current.closed) popupRef.current.close()
+      popupRef.current = null
+      return
+    }
+
+    // Open popup window (640x400, positioned for second monitor)
+    // Open near-fullscreen popup — sized to fill a monitor
+    const w = Math.min(screen.availWidth, 1920)
+    const h = Math.min(screen.availHeight, 1080)
+    const popup = window.open(
+      "",
+      "recording-preview",
+      `width=${w},height=${h},left=0,top=0,menubar=no,toolbar=no,location=no,status=no,resizable=yes`
+    )
+    if (!popup) return // popup blocked
+    popupRef.current = popup
+
+    // Write the HTML structure into the popup
+    popup.document.title = "Recording Preview"
+    popup.document.body.style.cssText = "margin:0;padding:0;background:#111;font-family:system-ui,sans-serif;overflow:hidden;"
+
+    popup.document.body.innerHTML = `
+      <div style="display:flex;flex-direction:column;height:100vh;">
+        <div id="controls" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#000;flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:pulse 2s infinite;"></span>
+            <span style="font-size:12px;color:rgba(255,255,255,0.5);font-weight:500;">Recording Preview</span>
           </div>
-          {/* Divider */}
-          <div className="w-px h-3 bg-white/10" />
-          {/* Corner position picker */}
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-white/30 mr-0.5">Position</span>
-            {(Object.keys(CORNER_LABELS) as WebcamCorner[]).map((c) => (
-              <button
-                key={c}
-                onClick={() => onCornerChange(c)}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors ${
-                  corner === c
-                    ? "bg-orange-500/30 text-orange-400"
-                    : "text-white/30 hover:text-white/60 hover:bg-white/5"
-                }`}
-                title={`Move webcam to ${c.replace("-", " ")}`}
-              >
-                {CORNER_LABELS[c]}
-              </button>
-            ))}
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-size:10px;color:rgba(255,255,255,0.25);">Size</span>
+              <button data-size="small" class="sz-btn" style="padding:2px 6px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:rgba(255,255,255,0.3);">S</button>
+              <button data-size="medium" class="sz-btn" style="padding:2px 6px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:rgba(255,255,255,0.3);">M</button>
+              <button data-size="large" class="sz-btn" style="padding:2px 6px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:rgba(255,255,255,0.3);">L</button>
+            </div>
+            <div style="width:1px;height:14px;background:rgba(255,255,255,0.1);"></div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-size:10px;color:rgba(255,255,255,0.25);">Position</span>
+              <button data-corner="top-left" class="pos-btn" style="padding:2px 6px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:rgba(255,255,255,0.3);">TL</button>
+              <button data-corner="top-right" class="pos-btn" style="padding:2px 6px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:rgba(255,255,255,0.3);">TR</button>
+              <button data-corner="bottom-left" class="pos-btn" style="padding:2px 6px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:rgba(255,255,255,0.3);">BL</button>
+              <button data-corner="bottom-right" class="pos-btn" style="padding:2px 6px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:rgba(255,255,255,0.3);">BR</button>
+            </div>
           </div>
         </div>
+        <canvas id="preview" style="flex:1;width:100%;background:#000;display:block;object-fit:contain;"></canvas>
       </div>
-      {/* Canvas preview — 480px wide */}
-      <canvas
-        ref={previewRef}
-        className="w-[480px] bg-black"
-      />
-    </div>
-  )
+      <style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}</style>
+    `
+
+    // Wire up button clicks
+    function updateButtonStyles() {
+      if (!popup || popup.closed) return
+      popup.document.querySelectorAll<HTMLButtonElement>(".sz-btn").forEach((btn) => {
+        const active = btn.dataset.size === onSizeRef.current.name // won't work, use data attr comparison below
+        btn.style.background = "transparent"
+        btn.style.color = "rgba(255,255,255,0.3)"
+      })
+      popup.document.querySelectorAll<HTMLButtonElement>(".pos-btn").forEach((btn) => {
+        btn.style.background = "transparent"
+        btn.style.color = "rgba(255,255,255,0.3)"
+      })
+    }
+
+    popup.document.querySelectorAll<HTMLButtonElement>(".sz-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const s = btn.dataset.size as WebcamSize
+        onSizeRef.current(s)
+        // Highlight active
+        popup.document.querySelectorAll<HTMLButtonElement>(".sz-btn").forEach((b) => {
+          const isActive = b.dataset.size === s
+          b.style.background = isActive ? "rgba(59,130,246,0.3)" : "transparent"
+          b.style.color = isActive ? "rgb(96,165,250)" : "rgba(255,255,255,0.3)"
+        })
+      })
+    })
+
+    popup.document.querySelectorAll<HTMLButtonElement>(".pos-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const c = btn.dataset.corner as WebcamCorner
+        onCornerRef.current(c)
+        // Highlight active
+        popup.document.querySelectorAll<HTMLButtonElement>(".pos-btn").forEach((b) => {
+          const isActive = b.dataset.corner === c
+          b.style.background = isActive ? "rgba(249,115,22,0.3)" : "transparent"
+          b.style.color = isActive ? "rgb(251,146,60)" : "rgba(255,255,255,0.3)"
+        })
+      })
+    })
+
+    // Set initial active states
+    const initSzBtn = popup.document.querySelector<HTMLButtonElement>(`.sz-btn[data-size="${size}"]`)
+    if (initSzBtn) { initSzBtn.style.background = "rgba(59,130,246,0.3)"; initSzBtn.style.color = "rgb(96,165,250)" }
+    const initPosBtn = popup.document.querySelector<HTMLButtonElement>(`.pos-btn[data-corner="${corner}"]`)
+    if (initPosBtn) { initPosBtn.style.background = "rgba(249,115,22,0.3)"; initPosBtn.style.color = "rgb(251,146,60)" }
+
+    // Draw loop — mirror compositing canvas at 5fps
+    const previewCanvas = popup.document.getElementById("preview") as HTMLCanvasElement | null
+    intervalRef.current = setInterval(() => {
+      if (popup.closed) {
+        if (intervalRef.current) clearInterval(intervalRef.current)
+        return
+      }
+      const src = canvasRef.current
+      if (!src || !previewCanvas || src.width === 0) return
+      const ctx = previewCanvas.getContext("2d")
+      if (!ctx) return
+      const cw = previewCanvas.clientWidth
+      const aspect = src.width / (src.height || 1)
+      const ch = Math.round(cw / aspect)
+      if (previewCanvas.width !== cw) previewCanvas.width = cw
+      if (previewCanvas.height !== ch) previewCanvas.height = ch
+      ctx.drawImage(src, 0, 0, cw, ch)
+    }, 200)
+
+    return () => {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+      if (popup && !popup.closed) popup.close()
+      popupRef.current = null
+    }
+  }, [isRecording, canvasRef, corner, size]) // re-run to update initial highlights
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -597,6 +652,16 @@ export function CallCockpit() {
     webcamCanvasRef: webcamCanvasForSessionRef,
     mixedAudioStreamRef: mixedStreamRef,
   })
+
+  // Recording preview in a separate popup window (so it doesn't appear in the recording)
+  useRecordingPreviewWindow(
+    sessionPreviewCanvasRef,
+    sessionRecState === "recording",
+    sessionWebcamCorner,
+    setSessionWebcamCorner,
+    sessionWebcamSize,
+    setSessionWebcamSize,
+  )
 
   // Recording blob from last call (for AI analysis)
   const lastCallBlobRef = useRef<Blob | null>(null)
@@ -1374,17 +1439,6 @@ export function CallCockpit() {
 
       {/* ── Overlays ─────────────────────────────────────────────────────────── */}
       <KeyboardShortcuts open={showShortcuts} onClose={() => setShowShortcuts(false)} />
-
-      {/* Recording preview monitor — shown while session recording is active */}
-      {sessionRecState === "recording" && (
-        <RecordingPreview
-          canvasRef={sessionPreviewCanvasRef}
-          corner={sessionWebcamCorner}
-          onCornerChange={setSessionWebcamCorner}
-          size={sessionWebcamSize}
-          onSizeChange={setSessionWebcamSize}
-        />
-      )}
 
       <AIAnalysisPanel
         open={aiPanelOpen}
