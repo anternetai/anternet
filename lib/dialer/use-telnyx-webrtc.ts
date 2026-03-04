@@ -19,8 +19,108 @@ export interface UseTelnyxWebRTCReturn {
 }
 
 /**
+ * Kill ALL audio from a Telnyx call object at every possible layer.
+ * Chrome plays audio from RTCPeerConnection receivers automatically —
+ * just nulling the <audio> srcObject is NOT enough.
+ */
+function nukeCallAudio(call: any) {
+  if (!call) return
+
+  // 1. Disable + stop tracks on call.remoteStream
+  try {
+    if (call.remoteStream) {
+      ;(call.remoteStream as MediaStream).getTracks().forEach((t: MediaStreamTrack) => {
+        t.enabled = false
+        t.stop()
+      })
+    }
+  } catch {}
+
+  // 2. Disable + stop all receiver tracks on the peer connection
+  //    This is what actually stops Chrome from playing audio.
+  try {
+    const pc: RTCPeerConnection | null = call.peer?.instance ?? call.peerConnection ?? null
+    if (pc) {
+      pc.getReceivers().forEach((r: RTCRtpReceiver) => {
+        if (r.track) {
+          r.track.enabled = false
+          r.track.stop()
+        }
+      })
+      pc.getSenders().forEach((s: RTCRtpSender) => {
+        if (s.track) {
+          s.track.enabled = false
+          s.track.stop()
+        }
+      })
+      pc.close()
+    }
+  } catch {}
+
+  // 3. Stop local stream tracks (microphone)
+  try {
+    if (call.localStream) {
+      ;(call.localStream as MediaStream).getTracks().forEach((t: MediaStreamTrack) => {
+        t.enabled = false
+        t.stop()
+      })
+    }
+  } catch {}
+}
+
+/**
+ * Mute remote audio tracks on a call's peer connection.
+ * Sets track.enabled = false so Chrome doesn't play incoming audio.
+ * Does NOT stop tracks (they can be re-enabled).
+ */
+function muteRemoteTracks(call: any) {
+  if (!call) return
+  try {
+    if (call.remoteStream) {
+      ;(call.remoteStream as MediaStream).getAudioTracks().forEach((t: MediaStreamTrack) => {
+        t.enabled = false
+      })
+    }
+  } catch {}
+  try {
+    const pc: RTCPeerConnection | null = call.peer?.instance ?? call.peerConnection ?? null
+    if (pc) {
+      pc.getReceivers().forEach((r: RTCRtpReceiver) => {
+        if (r.track && r.track.kind === "audio") {
+          r.track.enabled = false
+        }
+      })
+    }
+  } catch {}
+}
+
+/**
+ * Unmute remote audio tracks on a call's peer connection.
+ */
+function unmuteRemoteTracks(call: any) {
+  if (!call) return
+  try {
+    if (call.remoteStream) {
+      ;(call.remoteStream as MediaStream).getAudioTracks().forEach((t: MediaStreamTrack) => {
+        t.enabled = true
+      })
+    }
+  } catch {}
+  try {
+    const pc: RTCPeerConnection | null = call.peer?.instance ?? call.peerConnection ?? null
+    if (pc) {
+      pc.getReceivers().forEach((r: RTCRtpReceiver) => {
+        if (r.track && r.track.kind === "audio") {
+          r.track.enabled = true
+        }
+      })
+    }
+  } catch {}
+}
+
+/**
  * Telnyx WebRTC Hook — browser-based calling via @telnyx/webrtc SDK
- * 
+ *
  * Uses JWT authentication: the server generates a fresh token from a
  * telephony_credential, and the client uses `login_token` to connect.
  */
@@ -87,7 +187,7 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
     }
   }, [stopRingback])
 
-  // Kill the audio element — stops all sound immediately
+  // Kill the audio element + ringback — stops sound from OUR playback
   const killAudio = useCallback(() => {
     stopRingback()
     if (audioRef.current) {
@@ -95,6 +195,16 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       audioRef.current.srcObject = null
     }
   }, [stopRingback])
+
+  // Full audio nuke: kill audio element + kill all audio on a call object
+  const killEverything = useCallback((call: any) => {
+    killAudio()
+    if (remoteStreamRef.current) {
+      try { remoteStreamRef.current.getTracks().forEach((t) => { t.enabled = false; t.stop() }) } catch {}
+      remoteStreamRef.current = null
+    }
+    nukeCallAudio(call)
+  }, [killAudio])
 
   // Update both the React state and the synchronous ref
   const updateCallState = useCallback((newState: CallState) => {
@@ -217,28 +327,39 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       // CRITICAL: Only process events from our current active call.
       // After hangUp() sets callRef to null, ALL events are blocked.
       // After makeCall() sets callRef to the new call, only new call events pass.
-      // This prevents stale destroy/purge events from overriding the next call's state.
       if (call !== callRef.current) {
         console.log(`[Telnyx] ⚠️ Ignoring event "${state}" from stale/inactive call`)
+        // EXTRA SAFETY: If a stale call is producing audio, nuke it
+        if (state === "early" || state === "active" || state === "ringing") {
+          nukeCallAudio(call)
+          try { call.hangup() } catch {}
+        }
         return
       }
 
       switch (state) {
         case "trying":
         case "requesting":
+          // Immediately mute remote tracks — the peer connection may already exist
+          // and Chrome will play any incoming audio automatically.
+          muteRemoteTracks(call)
           updateCallState("connecting")
           break
         case "ringing":
         case "early":
-          // DO NOT attach remoteStream here — "early" state carries early media
-          // (voicemail greetings, carrier announcements) which would play while
-          // we're still ringing. The synthetic ringback handles audio feedback.
+          // CRITICAL: Mute remote audio at the peer connection level.
+          // "early" state carries early media (voicemail greetings, carrier
+          // announcements). Chrome plays RTCPeerConnection audio automatically
+          // even without an <audio> element — track.enabled = false stops it.
+          muteRemoteTracks(call)
           updateCallState("ringing")
           startRingback()
           break
         case "active":
           stopRingback()
-          // ONLY attach remote audio when call is truly answered
+          // NOW unmute — the call is actually answered by a human (or voicemail beep)
+          unmuteRemoteTracks(call)
+          // Attach remote audio to our audio element for playback
           if (call.remoteStream && audioRef.current) {
             audioRef.current.srcObject = call.remoteStream
             remoteStreamRef.current = call.remoteStream as MediaStream
@@ -250,12 +371,12 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
         case "destroy":
         case "purge":
           console.log(`[Telnyx] ☎️ Call ended — cause=${call.cause}, sip=${call.sipCode}`)
-          // CRITICAL: kill audio immediately so user doesn't hear anything
+          // CRITICAL: nuke ALL audio at every layer
           killAudio()
           stopTimer()
-          // Stop all tracks on the remote stream to prevent zombie audio
+          nukeCallAudio(call)
           if (remoteStreamRef.current) {
-            try { remoteStreamRef.current.getTracks().forEach((t) => t.stop()) } catch {}
+            try { remoteStreamRef.current.getTracks().forEach((t) => { t.enabled = false; t.stop() }) } catch {}
           }
           callRef.current = null
           remoteStreamRef.current = null
@@ -272,13 +393,14 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       killAudio()
       stopRingback()
       if (callRef.current) {
+        nukeCallAudio(callRef.current)
         try { callRef.current.hangup() } catch {}
       }
       if (clientRef.current) {
         try { clientRef.current.disconnect() } catch {}
       }
     }
-  }, [startTimer, stopTimer, killAudio, stopRingback, startRingback])
+  }, [startTimer, stopTimer, killAudio, stopRingback, startRingback, updateCallState])
 
   const makeCall = useCallback((phoneNumber: string) => {
     if (!clientRef.current || !isReady) {
@@ -286,37 +408,20 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       return
     }
 
-    // CRITICAL: Always kill audio and stop ringback FIRST — before anything else.
-    // This ensures no sound from a previous call bleeds into the new one,
-    // even if callRef was already nulled by a prior hangup/destroy event.
-    killAudio()
+    // CRITICAL: Kill ALL audio from any source before doing anything else.
+    // This is the single most important line — no sound should survive past here.
+    killEverything(callRef.current)
     stopTimer()
 
-    // Also stop any tracks on the previous remoteStream to prevent zombie audio
-    if (remoteStreamRef.current) {
-      try { remoteStreamRef.current.getTracks().forEach((t) => t.stop()) } catch {}
-      remoteStreamRef.current = null
-    }
-
-    // Clean up any existing call before starting a new one.
+    // Clean up any existing call — hangup SIP session + destroy peer connection
     if (callRef.current) {
       console.log("[Telnyx] ⚠️ Cleaning up existing call before dialing new one")
       const oldCall = callRef.current
       callRef.current = null
       try { oldCall.hangup() } catch {}
-      try {
-        if (oldCall.peer?.instance) {
-          const pc = oldCall.peer.instance as RTCPeerConnection
-          pc.getSenders().forEach((s: RTCRtpSender) => { if (s.track) s.track.stop() })
-          pc.getReceivers().forEach((r: RTCRtpReceiver) => { if (r.track) r.track.stop() })
-          pc.close()
-        }
-      } catch {}
-      try {
-        if (oldCall.localStream) {
-          (oldCall.localStream as MediaStream).getTracks().forEach((t: MediaStreamTrack) => t.stop())
-        }
-      } catch {}
+      // nukeCallAudio already called via killEverything above
+    } else {
+      callRef.current = null
     }
 
     setError(null)
@@ -340,73 +445,34 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
         video: false,
       })
       callRef.current = call
+      // Immediately mute remote tracks on the new call — don't let any early
+      // media play until we explicitly unmute in the "active" handler
+      muteRemoteTracks(call)
     } catch (e) {
       console.error("[Telnyx] Call failed:", e)
       setError(e instanceof Error ? e.message : "Failed to initiate call")
       updateCallState("idle")
     }
-  }, [isReady, updateCallState, killAudio, stopTimer])
+  }, [isReady, updateCallState, killEverything, stopTimer])
 
   const hangUp = useCallback(() => {
     console.log("[Telnyx] 🔴 Hanging up...")
 
-    // 1. Kill audio element FIRST — stop all sound immediately
-    killAudio()
-
-    // 2. Stop the timer
-    stopTimer()
-
-    // 3. Stop remote stream tracks to kill any lingering audio
-    if (remoteStreamRef.current) {
-      try { remoteStreamRef.current.getTracks().forEach((t) => t.stop()) } catch {}
-    }
-
-    // 4. Null refs BEFORE calling SDK hangup — blocks any further events
     const call = callRef.current
     callRef.current = null
     remoteStreamRef.current = null
 
+    // Nuke ALL audio at every layer — audio element, remote stream, peer connection
+    killEverything(call)
+    stopTimer()
+
     if (call) {
-      // Stop the call's own remote stream (may differ from our ref)
-      try {
-        if (call.remoteStream) {
-          (call.remoteStream as MediaStream).getTracks().forEach((t: MediaStreamTrack) => t.stop())
-        }
-      } catch {}
-
-      try {
-        // The SDK hangup() sends a SIP BYE
-        call.hangup()
-      } catch (e) {
-        console.error("[Telnyx] Hangup error:", e)
-      }
-
-      // Stop all media tracks on the call's peer connection
-      try {
-        if (call.peer?.instance) {
-          const pc = call.peer.instance as RTCPeerConnection
-          pc.getSenders().forEach((sender: RTCRtpSender) => {
-            if (sender.track) sender.track.stop()
-          })
-          pc.getReceivers().forEach((receiver: RTCRtpReceiver) => {
-            if (receiver.track) receiver.track.stop()
-          })
-          pc.close()
-        }
-      } catch {}
-
-      // Stop local stream tracks
-      try {
-        if (call.localStream) {
-          (call.localStream as MediaStream).getTracks().forEach((t: MediaStreamTrack) => t.stop())
-        }
-      } catch {}
+      try { call.hangup() } catch (e) { console.error("[Telnyx] Hangup error:", e) }
     }
 
-    // 5. Update state
     updateCallState("disconnected")
     setIsMuted(false)
-  }, [killAudio, stopTimer, updateCallState])
+  }, [killEverything, stopTimer, updateCallState])
 
   const toggleMute = useCallback(() => {
     if (callRef.current) {
