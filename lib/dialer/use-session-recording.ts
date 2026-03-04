@@ -24,6 +24,13 @@ interface UseSessionRecordingOptions {
 }
 
 export type WebcamCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right"
+export type WebcamSize = "small" | "medium" | "large"
+
+const WEBCAM_SIZES: Record<WebcamSize, number> = {
+  small: 160,
+  medium: 240,
+  large: 340,
+}
 
 interface UseSessionRecordingReturn {
   state: SessionRecordingState
@@ -36,9 +43,10 @@ interface UseSessionRecordingReturn {
   /** Which corner the webcam overlay sits in */
   webcamCorner: WebcamCorner
   setWebcamCorner: (corner: WebcamCorner) => void
+  /** Webcam overlay size in the recording */
+  webcamSize: WebcamSize
+  setWebcamSize: (size: WebcamSize) => void
 }
-
-const WEBCAM_SIZE = 200 // pixels for the round webcam overlay
 
 /**
  * useSessionRecording — captures screen + webcam overlay + both-sides audio.
@@ -61,6 +69,7 @@ export function useSessionRecording({
   const [durationMs, setDurationMs] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [webcamCorner, setWebcamCorner] = useState<WebcamCorner>("bottom-right")
+  const [webcamSize, setWebcamSize] = useState<WebcamSize>("medium")
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -72,9 +81,11 @@ export function useSessionRecording({
   const screenVideoRef = useRef<HTMLVideoElement | null>(null)
   const webcamVideoRef = useRef<HTMLVideoElement | null>(null)
   const webcamCornerRef = useRef<WebcamCorner>(webcamCorner)
+  const webcamSizeRef = useRef<WebcamSize>(webcamSize)
 
-  // Keep ref in sync with state so draw loop reads latest value
+  // Keep refs in sync with state so draw loop reads latest values
   webcamCornerRef.current = webcamCorner
+  webcamSizeRef.current = webcamSize
 
   // Cleanup on unmount
   useEffect(() => {
@@ -157,7 +168,7 @@ export function useSessionRecording({
         }
 
         if (webcamSource) {
-          const size = WEBCAM_SIZE
+          const size = WEBCAM_SIZES[webcamSizeRef.current]
           const margin = 20
           const corner = webcamCornerRef.current
           const x = corner.includes("right") ? canvas.width - size - margin : margin
@@ -356,5 +367,7 @@ export function useSessionRecording({
     previewCanvasRef: canvasRef,
     webcamCorner,
     setWebcamCorner,
+    webcamSize,
+    setWebcamSize,
   }
 }

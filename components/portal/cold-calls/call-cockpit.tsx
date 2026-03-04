@@ -57,7 +57,7 @@ import { LiveNotes } from "./live-notes"
 import { KeyboardShortcuts } from "./keyboard-shortcuts"
 import { AIAnalysisPanel } from "./ai-analysis-panel"
 import { useMixedAudioRecording } from "@/lib/dialer/use-mixed-audio-recording"
-import { useSessionRecording, type SessionRecordingState, type WebcamCorner } from "@/lib/dialer/use-session-recording"
+import { useSessionRecording, type SessionRecordingState, type WebcamCorner, type WebcamSize } from "@/lib/dialer/use-session-recording"
 import type { WebcamPiPHandle } from "./webcam-pip"
 
 // ─── Safe lazy import helper ───────────────────────────────────────────────────
@@ -427,20 +427,31 @@ const CORNER_LABELS: Record<WebcamCorner, string> = {
   "bottom-right": "BR",
 }
 
+const SIZE_LABELS: Record<WebcamSize, string> = {
+  small: "S",
+  medium: "M",
+  large: "L",
+}
+
 function RecordingPreview({
   canvasRef,
   corner,
   onCornerChange,
+  size,
+  onSizeChange,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
   corner: WebcamCorner
   onCornerChange: (c: WebcamCorner) => void
+  size: WebcamSize
+  onSizeChange: (s: WebcamSize) => void
 }) {
   const previewRef = useRef<HTMLCanvasElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Mirror the compositing canvas onto a smaller preview canvas at ~5fps (low CPU)
+  // Mirror the compositing canvas at ~5fps (low CPU)
   useEffect(() => {
+    const PREVIEW_W = 480
     intervalRef.current = setInterval(() => {
       const src = canvasRef.current
       const dst = previewRef.current
@@ -448,46 +459,69 @@ function RecordingPreview({
         const ctx = dst.getContext("2d")
         if (ctx) {
           const aspect = src.width / (src.height || 1)
-          if (dst.width !== 320) dst.width = 320
-          const h = Math.round(320 / aspect)
+          if (dst.width !== PREVIEW_W) dst.width = PREVIEW_W
+          const h = Math.round(PREVIEW_W / aspect)
           if (dst.height !== h) dst.height = h
           ctx.drawImage(src, 0, 0, dst.width, dst.height)
         }
       }
-    }, 200) // 5fps
+    }, 200)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [canvasRef])
 
   return (
-    <div className="fixed bottom-4 left-4 z-[9998] flex flex-col gap-1.5 rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl shadow-black/60 overflow-hidden">
+    <div className="fixed bottom-4 left-4 z-[9998] flex flex-col rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl shadow-black/60 overflow-hidden">
       {/* Preview header */}
-      <div className="flex items-center justify-between px-2.5 py-1.5 bg-black/40">
+      <div className="flex items-center justify-between px-3 py-2 bg-black/40">
         <div className="flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-[10px] font-medium text-white/60">Recording Preview</span>
+          <span className="text-xs font-medium text-white/60">Recording Preview</span>
         </div>
-        {/* Corner position picker */}
-        <div className="flex gap-0.5">
-          {(Object.keys(CORNER_LABELS) as WebcamCorner[]).map((c) => (
-            <button
-              key={c}
-              onClick={() => onCornerChange(c)}
-              className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors ${
-                corner === c
-                  ? "bg-orange-500/30 text-orange-400"
-                  : "text-white/30 hover:text-white/60 hover:bg-white/5"
-              }`}
-              title={`Move webcam to ${c.replace("-", " ")}`}
-            >
-              {CORNER_LABELS[c]}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          {/* Webcam size picker */}
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-white/30 mr-0.5">Size</span>
+            {(Object.keys(SIZE_LABELS) as WebcamSize[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => onSizeChange(s)}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors ${
+                  size === s
+                    ? "bg-blue-500/30 text-blue-400"
+                    : "text-white/30 hover:text-white/60 hover:bg-white/5"
+                }`}
+                title={`${s} webcam overlay`}
+              >
+                {SIZE_LABELS[s]}
+              </button>
+            ))}
+          </div>
+          {/* Divider */}
+          <div className="w-px h-3 bg-white/10" />
+          {/* Corner position picker */}
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-white/30 mr-0.5">Position</span>
+            {(Object.keys(CORNER_LABELS) as WebcamCorner[]).map((c) => (
+              <button
+                key={c}
+                onClick={() => onCornerChange(c)}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors ${
+                  corner === c
+                    ? "bg-orange-500/30 text-orange-400"
+                    : "text-white/30 hover:text-white/60 hover:bg-white/5"
+                }`}
+                title={`Move webcam to ${c.replace("-", " ")}`}
+              >
+                {CORNER_LABELS[c]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-      {/* Canvas preview */}
+      {/* Canvas preview — 480px wide */}
       <canvas
         ref={previewRef}
-        className="w-80 bg-black"
+        className="w-[480px] bg-black"
       />
     </div>
   )
@@ -556,6 +590,8 @@ export function CallCockpit() {
     previewCanvasRef: sessionPreviewCanvasRef,
     webcamCorner: sessionWebcamCorner,
     setWebcamCorner: setSessionWebcamCorner,
+    webcamSize: sessionWebcamSize,
+    setWebcamSize: setSessionWebcamSize,
   } = useSessionRecording({
     webcamStreamRef: webcamStreamForSessionRef,
     webcamCanvasRef: webcamCanvasForSessionRef,
@@ -1345,6 +1381,8 @@ export function CallCockpit() {
           canvasRef={sessionPreviewCanvasRef}
           corner={sessionWebcamCorner}
           onCornerChange={setSessionWebcamCorner}
+          size={sessionWebcamSize}
+          onSizeChange={setSessionWebcamSize}
         />
       )}
 

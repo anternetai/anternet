@@ -317,7 +317,7 @@ export const WebcamPiP = forwardRef<WebcamPiPHandle, WebcamPiPProps>(function We
             "bg-zinc-900/90 backdrop-blur-sm",
             "transition-all duration-200",
             isDragging ? "cursor-grabbing scale-105 opacity-90" : "cursor-default",
-            prefs.minimized ? "w-10 h-10 rounded-full" : "w-44"
+            prefs.minimized ? "w-10 h-10 rounded-full" : "w-64"
           )}
         >
           {prefs.minimized ? (
