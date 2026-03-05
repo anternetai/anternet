@@ -253,13 +253,12 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
     const client = clientRef.current
     if (client) {
       try {
-        // Set audio settings — minimal processing to preserve quality
         const device = audioInputDevices.find((d) => d.deviceId === deviceId)
         client.setAudioSettings({
           micId: deviceId,
           micLabel: device?.label || "",
           echoCancellation: true,
-          noiseSuppression: false,
+          noiseSuppression: true,
           autoGainControl: false,
         }).catch(() => {})
       } catch {}
@@ -499,11 +498,11 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
     console.log("[Telnyx] 📞 Calling:", formatted)
 
     try {
-      // Audio constraints — keep processing MINIMAL to avoid "underwater" sound.
-      // Chrome's noiseSuppression destroys audio quality on many USB mics.
+      // Audio constraints — noiseSuppression ON to kill laptop fan noise.
+      // autoGainControl OFF to avoid volume pumping artifacts.
       const audioConstraints: MediaTrackConstraints = {
         echoCancellation: true,
-        noiseSuppression: false,
+        noiseSuppression: true,
         autoGainControl: false,
       }
       if (selectedInputDeviceId && selectedInputDeviceId !== "default") {
