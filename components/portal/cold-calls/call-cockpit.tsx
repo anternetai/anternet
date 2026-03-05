@@ -42,6 +42,7 @@ import {
   Circle,
   Square,
   CheckCircle,
+  CheckCircle2,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -804,7 +805,7 @@ export function CallCockpit() {
   const uploadAndAnalyze = useCallback(
     async (lead: DialerLead, blob: Blob, outcome: ColdCallOutcome) => {
       setAiResult({ panelState: "loading" })
-      setAiPanelOpen(true)
+      // Don't open panel yet — only show toast when results are ready
       try {
         // Upload audio blob to /api/portal/calls/transcribe — runs Whisper + AI analysis
         const formData = new FormData()
@@ -847,10 +848,12 @@ export function CallCockpit() {
             rawTranscript: data.rawTranscript,
           })
           setPendingLead(null)
-          // Auto-close the panel after a brief flash
+          // Brief flash of "accepted" then auto-close
+          setAiPanelOpen(true)
           setTimeout(() => setAiPanelOpen(false), 1500)
         } else {
-          // AI disagrees or it's a meaningful outcome — show panel for review
+          // AI disagrees or it's a meaningful outcome — show toast for review
+          setAiPanelOpen(true)
           setAiResult({
             panelState: "ready",
             suggestedDisposition: aiDisposition,
@@ -1466,14 +1469,91 @@ export function CallCockpit() {
       {/* ── Overlays ─────────────────────────────────────────────────────────── */}
       <KeyboardShortcuts open={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
-      <AIAnalysisPanel
-        open={aiPanelOpen}
-        onClose={() => setAiPanelOpen(false)}
-        result={aiResult}
-        businessName={pendingLead?.business_name ?? undefined}
-        onAcceptAll={handleAIAcceptAll}
-        onOverride={handleAIOverride}
-      />
+      {/* ── AI Analysis Toast (bottom center, non-blocking) ───────────── */}
+      {aiPanelOpen && aiResult && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(480px,calc(100vw-2rem))]">
+          {aiResult.panelState === "loading" && (
+            <div className="rounded-xl border border-orange-500/30 bg-zinc-950/95 backdrop-blur-lg px-4 py-3 shadow-2xl flex items-center gap-3">
+              <Loader2 className="h-4 w-4 animate-spin text-orange-400 flex-shrink-0" />
+              <span className="text-sm text-muted-foreground">Analyzing call...</span>
+              <button onClick={() => setAiPanelOpen(false)} className="ml-auto text-xs text-muted-foreground/50 hover:text-muted-foreground">✕</button>
+            </div>
+          )}
+          {(aiResult.panelState === "accepted" || aiResult.panelState === "overridden") && (
+            <div className="rounded-xl border border-emerald-500/30 bg-zinc-950/95 backdrop-blur-lg px-4 py-3 shadow-2xl flex items-center gap-3">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+              <span className="text-sm text-emerald-400 font-medium">
+                {aiResult.panelState === "accepted" ? "AI accepted" : "Override saved"}
+              </span>
+            </div>
+          )}
+          {aiResult.panelState === "ready" && (
+            <div className="rounded-xl border border-orange-500/30 bg-zinc-950/95 backdrop-blur-lg shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-orange-400" />
+                  <span className="text-xs font-semibold text-orange-400 uppercase tracking-wide">AI Analysis</span>
+                  {aiResult.suggestedDisposition && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-300">
+                      {aiResult.suggestedDisposition.replace(/_/g, " ")}
+                    </span>
+                  )}
+                </div>
+                <button onClick={() => setAiPanelOpen(false)} className="text-xs text-muted-foreground/50 hover:text-muted-foreground">✕</button>
+              </div>
+              {/* Content */}
+              <div className="px-4 pb-2 space-y-2 max-h-[200px] overflow-y-auto">
+                {aiResult.suggestedNotes && (
+                  <p className="text-xs text-foreground/80 leading-relaxed">{aiResult.suggestedNotes}</p>
+                )}
+                {aiResult.keyPoints && aiResult.keyPoints.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wide mb-1">Key Points</p>
+                    {aiResult.keyPoints.map((p, i) => (
+                      <p key={i} className="text-xs text-foreground/70 pl-2 border-l border-orange-500/20 mb-1">{p}</p>
+                    ))}
+                  </div>
+                )}
+                {aiResult.nextSteps && aiResult.nextSteps.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wide mb-1">Next Steps</p>
+                    {aiResult.nextSteps.map((s, i) => (
+                      <p key={i} className="text-xs text-foreground/70 pl-2 border-l border-emerald-500/20 mb-1">{s}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Actions */}
+              <div className="px-4 pb-3 pt-1 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 h-8 gap-1.5 bg-orange-600 hover:bg-orange-500 text-white border-0 text-xs font-bold"
+                  onClick={() => {
+                    handleAIAcceptAll({
+                      disposition: aiResult.suggestedDisposition!,
+                      notes: aiResult.suggestedNotes || "",
+                      followUpDate: aiResult.suggestedFollowUpDate,
+                    })
+                    setAiPanelOpen(false)
+                  }}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Accept All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs text-muted-foreground border-zinc-700"
+                  onClick={() => setAiPanelOpen(false)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </>
   )
 }
