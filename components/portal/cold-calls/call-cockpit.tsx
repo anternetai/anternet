@@ -930,8 +930,7 @@ export function CallCockpit() {
         // Always submit the disposition
         await submitDisposition(leadSnap, outcome, notesSnap, demoDateSnap)
 
-        // Trigger auto-dial — call was just hung up above so state should be disconnected/idle
-        setAutoDialActive(true)
+        // Auto-dial disabled — user clicks Dial manually
 
         // Run AI analysis in background if we have a recording (non-blocking)
         // Upload for ALL outcomes that have recordings (not just conversation)
@@ -997,11 +996,7 @@ export function CallCockpit() {
       setCurrentIndex(0)
     }
 
-    // Only trigger auto-dial if no call is active
-    const cs = currentCallStateRef.current
-    if (cs === "idle" || cs === "disconnected") {
-      setAutoDialActive(true)
-    }
+    // Auto-dial disabled — user clicks Dial manually
   }, [currentLead, currentIndex, leads.length, mutate, resetForm, submitDisposition])
 
   const handleSync = useCallback(async () => {
@@ -1260,7 +1255,7 @@ export function CallCockpit() {
         lead={currentLead}
         onCallComplete={undefined}
         onSkipToNext={skipLead}
-        autoDialActive={autoDialActive}
+        autoDialActive={false}
         onCancelAutoDial={() => setAutoDialActive(false)}
         onCallStateChange={handleCallStateChange}
         onRemoteStream={handleRemoteStream}
