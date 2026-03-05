@@ -107,7 +107,13 @@ export function PowerDialer({
     isMuted,
     setCallStateIdle,
     remoteStreamRef,
+    audioInputDevices,
+    selectedInputDeviceId,
+    setInputDevice,
+    refreshDevices,
   } = useTelnyxWebRTC()
+
+  const [showMicPicker, setShowMicPicker] = useState(false)
 
   // Expose hangUp to parent via ref so cockpit can end call on disposition
   useEffect(() => {
@@ -426,6 +432,53 @@ export function PowerDialer({
           {!isReady && (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
+
+          {/* Mic selector */}
+          <button
+            onClick={() => { refreshDevices(); setShowMicPicker((v) => !v) }}
+            className={cn(
+              "flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors",
+              showMicPicker
+                ? "border-orange-500/50 text-orange-400 bg-orange-500/10"
+                : "border-zinc-700 text-muted-foreground hover:text-foreground hover:border-zinc-500"
+            )}
+            title="Audio input device"
+          >
+            <Mic className="h-3 w-3" />
+            <span className="hidden sm:inline max-w-[120px] truncate">
+              {audioInputDevices.find((d) => d.deviceId === selectedInputDeviceId)?.label || "Default"}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* ── Mic picker dropdown ──────────────────────────────────────── */}
+      {showMicPicker && (
+        <div className="w-full rounded-lg border border-zinc-700 bg-zinc-900/95 p-2 space-y-1">
+          <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide px-1 pb-1">
+            Audio Input Device
+          </p>
+          {audioInputDevices.length === 0 && (
+            <p className="text-xs text-muted-foreground px-1">No devices found. Check mic permissions.</p>
+          )}
+          {audioInputDevices.map((device) => (
+            <button
+              key={device.deviceId}
+              onClick={() => { setInputDevice(device.deviceId); setShowMicPicker(false) }}
+              className={cn(
+                "w-full text-left px-2 py-1.5 rounded text-xs transition-colors flex items-center gap-2",
+                device.deviceId === selectedInputDeviceId
+                  ? "bg-orange-500/15 text-orange-400"
+                  : "text-foreground/80 hover:bg-zinc-800"
+              )}
+            >
+              <Mic className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{device.label}</span>
+              {device.deviceId === selectedInputDeviceId && (
+                <span className="ml-auto text-[10px] text-orange-400/70">Active</span>
+              )}
+            </button>
+          ))}
         </div>
       )}
 

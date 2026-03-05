@@ -3,6 +3,11 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import type { CallState } from "./types"
 
+export interface AudioDevice {
+  deviceId: string
+  label: string
+}
+
 export interface UseTelnyxWebRTCReturn {
   callState: CallState
   callDuration: number
@@ -16,6 +21,14 @@ export interface UseTelnyxWebRTCReturn {
   setCallStateIdle: () => void
   /** Ref to the remote audio MediaStream (callee's voice) — set when call connects */
   remoteStreamRef: React.RefObject<MediaStream | null>
+  /** Available audio input devices */
+  audioInputDevices: AudioDevice[]
+  /** Currently selected input device ID */
+  selectedInputDeviceId: string | null
+  /** Change the audio input device */
+  setInputDevice: (deviceId: string) => void
+  /** Refresh device list */
+  refreshDevices: () => void
 }
 
 /**
@@ -130,6 +143,8 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
   const [isReady, setIsReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isMuted, setIsMuted] = useState(false)
+  const [audioInputDevices, setAudioInputDevices] = useState<AudioDevice[]>([])
+  const [selectedInputDeviceId, setSelectedInputDeviceId] = useState<string | null>(null)
 
   const clientRef = useRef<any>(null)
   const callRef = useRef<any>(null)
@@ -211,6 +226,52 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
     callStateRef.current = newState
     setCallState(newState)
   }, [])
+
+  // Enumerate audio input devices
+  const refreshDevices = useCallback(async () => {
+    try {
+      // Need permission first to get labels
+      await navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => s.getTracks().forEach((t) => t.stop()))
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const inputs = devices
+        .filter((d) => d.kind === "audioinput" && d.deviceId)
+        .map((d) => ({ deviceId: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` }))
+      setAudioInputDevices(inputs)
+      // If no device selected yet, pick default
+      if (!selectedInputDeviceId && inputs.length > 0) {
+        const def = inputs.find((d) => d.deviceId === "default") || inputs[0]
+        setSelectedInputDeviceId(def.deviceId)
+      }
+    } catch (e) {
+      console.warn("[Telnyx] Could not enumerate audio devices:", e)
+    }
+  }, [selectedInputDeviceId])
+
+  // Set audio input device on Telnyx client
+  const setInputDevice = useCallback((deviceId: string) => {
+    setSelectedInputDeviceId(deviceId)
+    const client = clientRef.current
+    if (client) {
+      try {
+        // Set audio settings with echo cancellation forced on
+        const device = audioInputDevices.find((d) => d.deviceId === deviceId)
+        client.setAudioSettings({
+          micId: deviceId,
+          micLabel: device?.label || "",
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }).catch(() => {})
+      } catch {}
+    }
+    // If there's an active call, switch the mic on it too
+    if (callRef.current) {
+      try { callRef.current.setAudioInDevice(deviceId) } catch {}
+    }
+  }, [audioInputDevices])
+
+  // Enumerate devices on mount
+  useEffect(() => { refreshDevices() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Create a hidden audio element for remote audio
   useEffect(() => {
@@ -438,10 +499,20 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
     console.log("[Telnyx] 📞 Calling:", formatted)
 
     try {
+      // Build audio constraints with device selection + echo cancellation
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      }
+      if (selectedInputDeviceId && selectedInputDeviceId !== "default") {
+        audioConstraints.deviceId = { exact: selectedInputDeviceId }
+      }
+
       const call = clientRef.current.newCall({
         destinationNumber: formatted,
         callerIdNumber: callerIdRef.current || undefined,
-        audio: true,
+        audio: audioConstraints,
         video: false,
       })
       callRef.current = call
@@ -501,5 +572,9 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
     toggleMute,
     setCallStateIdle,
     remoteStreamRef,
+    audioInputDevices,
+    selectedInputDeviceId,
+    setInputDevice,
+    refreshDevices,
   }
 }
