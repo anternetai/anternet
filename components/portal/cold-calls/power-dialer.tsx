@@ -10,6 +10,9 @@ import {
   Settings2,
   MicOff,
   Mic,
+  Play,
+  Square,
+  Volume2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -114,6 +117,57 @@ export function PowerDialer({
   } = useTelnyxWebRTC()
 
   const [showMicPicker, setShowMicPicker] = useState(false)
+  const [micTestState, setMicTestState] = useState<"idle" | "recording" | "playing">("idle")
+  const micTestRef = useRef<{ recorder: MediaRecorder; chunks: Blob[]; stream: MediaStream } | null>(null)
+  const micTestAudioRef = useRef<HTMLAudioElement | null>(null)
+
+  const startMicTest = useCallback(async () => {
+    try {
+      const constraints: MediaStreamConstraints = {
+        audio: selectedInputDeviceId && selectedInputDeviceId !== "default"
+          ? { deviceId: { exact: selectedInputDeviceId }, echoCancellation: true, noiseSuppression: false, autoGainControl: false }
+          : { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      const recorder = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const blob = new Blob(chunks, { type: "audio/webm" })
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        micTestAudioRef.current = audio
+        setMicTestState("playing")
+        audio.play()
+        audio.onended = () => {
+          URL.revokeObjectURL(url)
+          setMicTestState("idle")
+          micTestAudioRef.current = null
+        }
+      }
+      micTestRef.current = { recorder, chunks, stream }
+      recorder.start()
+      setMicTestState("recording")
+      // Auto-stop after 4 seconds
+      setTimeout(() => {
+        if (recorder.state === "recording") recorder.stop()
+      }, 4000)
+    } catch {
+      setMicTestState("idle")
+    }
+  }, [selectedInputDeviceId])
+
+  const stopMicTest = useCallback(() => {
+    if (micTestRef.current?.recorder.state === "recording") {
+      micTestRef.current.recorder.stop()
+    }
+    if (micTestAudioRef.current) {
+      micTestAudioRef.current.pause()
+      micTestAudioRef.current = null
+      setMicTestState("idle")
+    }
+  }, [])
 
   // Expose hangUp to parent via ref so cockpit can end call on disposition
   useEffect(() => {
@@ -479,6 +533,36 @@ export function PowerDialer({
               )}
             </button>
           ))}
+          {/* Test Mic */}
+          <div className="border-t border-zinc-800 pt-2 mt-2">
+            {micTestState === "idle" && (
+              <button
+                onClick={startMicTest}
+                className="w-full text-left px-2 py-1.5 rounded text-xs text-emerald-400 hover:bg-zinc-800 flex items-center gap-2"
+              >
+                <Play className="h-3 w-3" />
+                Test Mic (records 4s, plays back)
+              </button>
+            )}
+            {micTestState === "recording" && (
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs text-red-400 font-medium">Recording... speak now</span>
+                <button onClick={stopMicTest} className="ml-auto text-xs text-muted-foreground hover:text-foreground">
+                  <Square className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+            {micTestState === "playing" && (
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <Volume2 className="h-3 w-3 text-emerald-400 animate-pulse" />
+                <span className="text-xs text-emerald-400 font-medium">Playing back...</span>
+                <button onClick={stopMicTest} className="ml-auto text-xs text-muted-foreground hover:text-foreground">
+                  <Square className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
