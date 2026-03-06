@@ -377,9 +377,6 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
         client.setAudioSettings({
           micId: deviceId,
           micLabel: device?.label || "",
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
         }).catch(() => {})
       } catch {}
     }
@@ -738,7 +735,7 @@ export function useTelnyxWebRTC(): UseTelnyxWebRTCReturn {
       setError(e instanceof Error ? e.message : "Failed to initiate call")
       updateCallState("idle")
     }
-  }, [isReady, updateCallState, killEverything, stopTimer])
+  }, [isReady, selectedInputDeviceId, updateCallState, killEverything, stopTimer])
 
   const hangUp = useCallback(() => {
     console.log("[Telnyx] 🔴 Hanging up...")

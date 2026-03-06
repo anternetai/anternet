@@ -127,10 +127,13 @@ export function PowerDialer({
 
   const startMicTest = useCallback(async () => {
     try {
+      // Use browser defaults for audio processing (same as audio: true).
+      // Explicitly setting false disables Chrome's processing and lets raw
+      // noise through — that's what caused the jet engine sound.
       const constraints: MediaStreamConstraints = {
         audio: selectedInputDeviceId && selectedInputDeviceId !== "default"
-          ? { deviceId: { exact: selectedInputDeviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-          : { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+          ? { deviceId: { exact: selectedInputDeviceId } }
+          : true,
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
       const recorder = new MediaRecorder(stream)
