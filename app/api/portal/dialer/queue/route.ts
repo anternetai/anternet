@@ -37,8 +37,8 @@ export async function GET(req: NextRequest) {
   const now = new Date().toISOString()
   const todayStart = `${today}T00:00:00.000Z`
 
-  // 1. Get callbacks due now or overdue
-  const { data: callbacks } = await admin
+  // 1. Get callbacks due now or overdue — filtered by current timezone
+  let callbackQuery = admin
     .from("dialer_leads")
     .select("*")
     .eq("status", "callback")
@@ -46,6 +46,12 @@ export async function GET(req: NextRequest) {
     .lt("attempt_count", 5)
     .order("next_call_at", { ascending: true })
     .limit(20)
+
+  if (currentTimezone) {
+    callbackQuery = callbackQuery.eq("timezone", currentTimezone)
+  }
+
+  const { data: callbacks } = await callbackQuery
 
   // 2. Get queued leads for current timezone
   // Filter out leads already called today — forces queue to progress
@@ -73,7 +79,7 @@ export async function GET(req: NextRequest) {
   // Remove duplicates (callback might also appear in queued)
   const seenIds = new Set(allCallbacks.map((l) => l.id))
   const dedupedQueued = allQueued.filter((l) => !seenIds.has(l.id))
-  const leads = [...allCallbacks, ...dedupedQueued]
+  const leads = [...dedupedQueued, ...allCallbacks]
 
   // 3. Get today's progress
   const { count: completedToday } = await admin
