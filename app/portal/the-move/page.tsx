@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
+import { DoorOpen } from "lucide-react"
 
 import { MoveHero } from "@/components/portal/the-move/move-hero"
 import { SessionTracker } from "@/components/portal/the-move/session-tracker"
@@ -11,11 +13,9 @@ import { PhaseTracker } from "@/components/portal/the-move/phase-tracker"
 import { ScorecardSection } from "@/components/portal/the-move/scorecard-section"
 import { ClientProgress } from "@/components/portal/the-move/client-progress"
 import { RevenueBridge } from "@/components/portal/the-move/revenue-bridge"
-import { KnockLogger } from "@/components/portal/the-move/knock-logger"
 import { KnockHistory } from "@/components/portal/the-move/knock-history"
 import { ConversionFunnel } from "@/components/portal/the-move/conversion-funnel"
-import type { MoveStats } from "@/lib/the-move/types"
-import type { DoorKnockSession } from "@/lib/the-move/types"
+import type { MoveStats, DoorKnockSession } from "@/lib/the-move/types"
 
 const ADMIN_ID = "bba79829-7852-4f81-aa2e-393650138e7c"
 
@@ -24,9 +24,6 @@ export default function TheMovePage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<MoveStats | null>(null)
   const [sessions, setSessions] = useState<DoorKnockSession[]>([])
-  const [loggerOpen, setLoggerOpen] = useState(false)
-  const [editSession, setEditSession] = useState<DoorKnockSession | null>(null)
-
   useEffect(() => {
     async function checkAuth() {
       const supabase = createClient()
@@ -52,25 +49,6 @@ export default function TheMovePage() {
   useEffect(() => {
     if (!loading) fetchData()
   }, [loading, fetchData])
-
-  function handleKnockSubmit(session: DoorKnockSession) {
-    setSessions((prev) => {
-      const exists = prev.findIndex((s) => s.id === session.id)
-      if (exists >= 0) {
-        const updated = [...prev]
-        updated[exists] = session
-        return updated
-      }
-      return [session, ...prev]
-    })
-    setEditSession(null)
-    fetch("/api/portal/the-move/stats").then((r) => { if (r.ok) r.json().then(setStats) })
-  }
-
-  function handleEdit(session: DoorKnockSession) {
-    setEditSession(session)
-    setLoggerOpen(true)
-  }
 
   if (loading) {
     return (
@@ -107,7 +85,17 @@ export default function TheMovePage() {
         </div>
 
         <RevenueBridge stats={stats} />
-        <KnockHistory sessions={sessions} onEdit={handleEdit} />
+        <KnockHistory sessions={sessions} onEdit={() => router.push("/portal/the-move/knocks")} />
+
+        {/* Log Session Link */}
+        <div className="flex justify-center">
+          <Button asChild className="h-14 px-8 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-black font-black text-base tracking-wide uppercase shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+            <Link href="/portal/the-move/knocks">
+              <DoorOpen className="mr-2 size-5" />
+              Log Session
+            </Link>
+          </Button>
+        </div>
 
         {/* Vision board footer */}
         <div className="pt-4 pb-2 text-center">
@@ -115,26 +103,6 @@ export default function TheMovePage() {
             Every dial gets you closer. Every door gets you closer. Do the work.
           </p>
         </div>
-      </div>
-
-      <KnockLogger
-        open={loggerOpen}
-        onOpenChange={(open) => {
-          setLoggerOpen(open)
-          if (!open) setEditSession(null)
-        }}
-        editSession={editSession}
-        onSubmit={handleKnockSubmit}
-      />
-
-      {/* Mobile sticky trigger */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 lg:hidden bg-black/90 backdrop-blur-lg border-t border-stone-800/50">
-        <Button
-          onClick={() => setLoggerOpen(true)}
-          className="w-full h-14 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-black font-black text-base tracking-wide uppercase shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-        >
-          Log Knock Session
-        </Button>
       </div>
     </div>
   )

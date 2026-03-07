@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
     session_minutes,
     weather,
     session_date,
+    gps_pins,
   } = body
 
   if (!neighborhood) {
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
       session_minutes: session_minutes || null,
       weather: weather || null,
       session_date: session_date || new Date().toISOString().split("T")[0],
+      gps_pins: gps_pins || [],
     })
     .select()
     .single()

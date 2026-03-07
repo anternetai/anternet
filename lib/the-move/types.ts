@@ -1,3 +1,11 @@
+export interface GpsPin {
+  lat: number
+  lng: number
+  label?: string
+  result?: "knocked" | "opened" | "pitched" | "closed" | "skip"
+  ts: string
+}
+
 export interface DoorKnockSession {
   id: string
   created_at: string
@@ -13,6 +21,7 @@ export interface DoorKnockSession {
   revenue_closed: number
   session_minutes: number | null
   weather: string | null
+  gps_pins: GpsPin[] | null
 }
 
 export interface MoveStats {

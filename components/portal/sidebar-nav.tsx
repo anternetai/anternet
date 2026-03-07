@@ -16,6 +16,7 @@ import {
   Headphones,
   Cpu,
   MapPin,
+  DoorOpen,
 } from "lucide-react"
 import {
   Sidebar,
@@ -51,6 +52,7 @@ const adminItems = [
   { label: "Call Logs", href: "/portal/calls", icon: Headphones },
   { label: "Control Panel", href: "/portal/admin/control", icon: Cpu },
   { label: "The Move", href: "/portal/the-move", icon: MapPin },
+  { label: "Door Knocks", href: "/portal/the-move/knocks", icon: DoorOpen },
 ]
 
 interface SidebarNavProps {
