@@ -331,21 +331,43 @@ function mapRecording(r: Record<string, unknown>): TelnyxRecording {
  * from the `telnyx-signature-ed25519` and `telnyx-timestamp` headers.
  */
 export function verifyWebhookSignature(
-  _payload: string,
-  _signature: string | null,
-  _timestamp: string | null
+  payload: string,
+  signature: string | null,
+  timestamp: string | null
 ): boolean {
-  // TODO: Implement ed25519 verification when TELNYX_PUBLIC_KEY is set
-  // For now, validate that the payload is valid JSON and has expected structure
   const publicKey = process.env.TELNYX_PUBLIC_KEY
   if (!publicKey) {
-    // No key configured — accept all valid payloads (development mode)
+    console.warn("[telnyx] TELNYX_PUBLIC_KEY not set — webhook verification skipped (set in production!)")
     return true
   }
 
-  // Full verification would use tweetnacl or @noble/ed25519 here
-  // For now, trust the webhook if it comes from a valid Telnyx event structure
-  return true
+  if (!signature || !timestamp) {
+    console.error("[telnyx] Missing signature or timestamp headers")
+    return false
+  }
+
+  try {
+    // Telnyx signs: timestamp|payload with ed25519
+    const crypto = require("crypto")
+    const signedPayload = `${timestamp}|${payload}`
+    const signatureBuffer = Buffer.from(signature, "base64")
+    const publicKeyBuffer = Buffer.from(publicKey, "base64")
+
+    const isValid = crypto.verify(
+      null, // ed25519 doesn't use a separate hash algorithm
+      Buffer.from(signedPayload),
+      { key: publicKeyBuffer, format: "der", type: "spki" },
+      signatureBuffer
+    )
+
+    if (!isValid) {
+      console.error("[telnyx] Webhook signature verification failed")
+    }
+    return isValid
+  } catch (err) {
+    console.error("[telnyx] Webhook verification error:", err)
+    return false
+  }
 }
 
 // ─── Event Parsing ────────────────────────────────────────

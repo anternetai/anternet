@@ -18,8 +18,6 @@ import { ConversionFunnel } from "@/components/portal/the-move/conversion-funnel
 import { InsightsCard } from "@/components/portal/the-move/insights-card"
 import type { MoveStats, DoorKnockSession } from "@/lib/the-move/types"
 
-const ADMIN_ID = "bba79829-7852-4f81-aa2e-393650138e7c"
-
 export default function TheMovePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -30,7 +28,16 @@ export default function TheMovePage() {
     async function checkAuth() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || user.id !== ADMIN_ID) {
+      if (!user) {
+        router.push("/portal/dashboard")
+        return
+      }
+      const { data: profile } = await supabase
+        .from("agency_clients")
+        .select("role")
+        .eq("auth_user_id", user.id)
+        .single()
+      if (profile?.role !== "admin") {
         router.push("/portal/dashboard")
         return
       }
@@ -67,7 +74,7 @@ export default function TheMovePage() {
       <div className="mx-auto max-w-5xl space-y-5 p-4 pb-28 lg:p-6 lg:pb-6">
         {/* Motivational header */}
         <div className="pt-2 pb-1">
-          <p className="text-[10px] tracking-[0.4em] text-stone-600 uppercase">
+          <p className="text-[10px] tracking-[0.4em] text-stone-400 uppercase">
             Charlotte to Brooklyn
           </p>
         </div>
@@ -134,11 +141,11 @@ export default function TheMovePage() {
                       </span>
                     </div>
                   </div>
-                  <ArrowRight className="size-4 text-stone-600" />
+                  <ArrowRight className="size-4 text-stone-400" />
                 </Link>
               ))}
               {territories.length > 3 && (
-                <p className="text-center text-xs text-stone-600">
+                <p className="text-center text-xs text-stone-400">
                   +{territories.length - 3} more
                 </p>
               )}

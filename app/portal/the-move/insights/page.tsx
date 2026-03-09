@@ -10,8 +10,7 @@ import {
   Sparkles,
   Loader2,
 } from "lucide-react"
-
-const ADMIN_ID = "bba79829-7852-4f81-aa2e-393650138e7c"
+import ReactMarkdown from "react-markdown"
 
 interface ChatMessage {
   role: "user" | "assistant"
@@ -41,7 +40,16 @@ export default function InsightsPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      if (!user || user.id !== ADMIN_ID) {
+      if (!user) {
+        router.push("/portal/dashboard")
+        return
+      }
+      const { data: profile } = await supabase
+        .from("agency_clients")
+        .select("role")
+        .eq("auth_user_id", user.id)
+        .single()
+      if (profile?.role !== "admin") {
         router.push("/portal/dashboard")
         return
       }
@@ -115,6 +123,7 @@ export default function InsightsPage() {
       <div className="flex items-center gap-3 border-b border-stone-800 px-4 py-3">
         <button
           onClick={() => router.push("/portal/the-move")}
+          aria-label="Back to The Move"
           className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-800 hover:text-stone-300 transition"
         >
           <ArrowLeft className="size-4" />
@@ -123,7 +132,7 @@ export default function InsightsPage() {
           <Brain className="size-5 text-amber-400" />
           <h1 className="font-bold text-stone-200">The Brain</h1>
         </div>
-        <span className="text-[10px] text-stone-600">
+        <span className="text-[10px] text-stone-400">
           Ask anything about your data
         </span>
       </div>
@@ -169,12 +178,9 @@ export default function InsightsPage() {
                   }`}
                 >
                   {msg.role === "assistant" ? (
-                    <div
-                      className="prose prose-sm prose-invert max-w-none prose-headings:text-stone-200 prose-strong:text-stone-200 prose-li:text-stone-300 prose-p:text-stone-300"
-                      dangerouslySetInnerHTML={{
-                        __html: simpleMarkdown(msg.content),
-                      }}
-                    />
+                    <div className="prose prose-sm prose-invert max-w-none prose-headings:text-stone-200 prose-strong:text-stone-200 prose-li:text-stone-300 prose-p:text-stone-300">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
                   ) : (
                     <p className="text-sm">{msg.content}</p>
                   )}
@@ -208,12 +214,14 @@ export default function InsightsPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about your data..."
+            aria-label="Ask a question about your data"
             disabled={thinking}
-            className="flex-1 rounded-xl border border-stone-700 bg-stone-800/50 px-4 py-2.5 text-sm text-stone-200 placeholder:text-stone-600 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/20 disabled:opacity-50"
+            className="flex-1 rounded-xl border border-stone-700 bg-stone-800/50 px-4 py-2.5 text-sm text-stone-200 placeholder:text-stone-500 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/20 disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={!input.trim() || thinking}
+            aria-label="Send message"
             className="rounded-xl bg-amber-500 p-2.5 text-black hover:bg-amber-400 transition disabled:opacity-30 disabled:hover:bg-amber-500"
           >
             <Send className="size-4" />
@@ -224,21 +232,3 @@ export default function InsightsPage() {
   )
 }
 
-// Simple markdown to HTML (bold, headers, lists, line breaks)
-function simpleMarkdown(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/^### (.+)$/gm, '<h3 class="text-sm font-bold mt-3 mb-1">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="text-sm font-bold mt-3 mb-1">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 class="text-base font-bold mt-3 mb-1">$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
-    .replace(/^(\d+)\. (.+)$/gm, '<li class="ml-4 list-decimal">$2</li>')
-    .replace(/\n\n/g, "</p><p>")
-    .replace(/\n/g, "<br>")
-    .replace(/^/, "<p>")
-    .replace(/$/, "</p>")
-}

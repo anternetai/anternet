@@ -45,12 +45,15 @@ export default function CRMLogin() {
           >
             CRM Access
           </h1>
+          <label htmlFor="crm-password" className="sr-only">Passphrase</label>
           <input
+            id="crm-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Passphrase"
             autoFocus
+            aria-label="Enter passphrase to access CRM"
             className="w-full px-4 py-3 bg-white border border-[#3A6B4C]/15 rounded-lg text-[#2B2B2B] placeholder:text-[#2B2B2B]/30 focus:outline-none focus:border-[#3A6B4C]"
           />
           {error && <p className="text-sm text-[#B8453A]">{error}</p>}

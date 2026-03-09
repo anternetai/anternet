@@ -23,68 +23,32 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // Fetch all clients with aggregated metrics (exclude soft-deleted)
-  const { data: clients } = await supabase
-    .from("agency_clients")
+  // Single query via view — replaces N+1 pattern (was 5 queries per client)
+  const { data: clients, error } = await supabase
+    .from("admin_client_metrics")
     .select("*")
-    .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
-  if (!clients) {
-    return NextResponse.json({ clients: [] })
+  if (error) {
+    console.error("Failed to fetch admin client metrics:", error)
+    // Fallback to basic query if view doesn't exist
+    const { data: fallbackClients } = await supabase
+      .from("agency_clients")
+      .select("*")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+
+    return NextResponse.json({
+      clients: (fallbackClients || []).map((c) => ({
+        ...c,
+        lead_count: 0,
+        appointment_count: 0,
+        show_rate: 0,
+        total_charged: 0,
+        last_lead_at: null,
+      })),
+    })
   }
 
-  const clientMetrics = await Promise.all(
-    clients.map(async (client) => {
-      const [leadsRes, appointmentsRes, showedRes, paymentsRes, lastLeadRes] =
-        await Promise.all([
-          supabase
-            .from("leads")
-            .select("id", { count: "exact", head: true })
-            .eq("client_id", client.id),
-          supabase
-            .from("appointments")
-            .select("id", { count: "exact", head: true })
-            .eq("client_id", client.id),
-          supabase
-            .from("appointments")
-            .select("id", { count: "exact", head: true })
-            .eq("client_id", client.id)
-            .eq("status", "showed"),
-          supabase
-            .from("payments")
-            .select("amount_cents")
-            .eq("client_id", client.id)
-            .eq("status", "succeeded"),
-          supabase
-            .from("leads")
-            .select("created_at")
-            .eq("client_id", client.id)
-            .order("created_at", { ascending: false })
-            .limit(1),
-        ])
-
-      const leadCount = leadsRes.count ?? 0
-      const appointmentCount = appointmentsRes.count ?? 0
-      const showedCount = showedRes.count ?? 0
-      const showRate =
-        appointmentCount > 0 ? (showedCount / appointmentCount) * 100 : 0
-      const totalCharged = (paymentsRes.data ?? []).reduce(
-        (sum, p) => sum + ((p.amount_cents ?? 0) / 100),
-        0
-      )
-      const lastLeadAt = lastLeadRes.data?.[0]?.created_at ?? null
-
-      return {
-        ...client,
-        lead_count: leadCount,
-        appointment_count: appointmentCount,
-        show_rate: showRate,
-        total_charged: totalCharged,
-        last_lead_at: lastLeadAt,
-      }
-    })
-  )
-
-  return NextResponse.json({ clients: clientMetrics })
+  return NextResponse.json({ clients: clients || [] })
 }

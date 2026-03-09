@@ -11,13 +11,14 @@ import {
   CreditCard,
   Shield,
   UserPlus,
-  Phone,
   PhoneCall,
   Headphones,
   Cpu,
   MapPin,
   DoorOpen,
   Brain,
+  Settings,
+  ClipboardList,
 } from "lucide-react"
 import {
   Sidebar,
@@ -37,6 +38,7 @@ import { UserMenu } from "./user-menu"
 import { TEAM_ROLE_CONFIG } from "@/lib/portal/constants"
 import type { TeamMemberRole } from "@/lib/portal/types"
 
+// Client/team member nav — always visible
 const navItems = [
   { label: "Dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
   { label: "Leads", href: "/portal/leads", icon: Users },
@@ -45,17 +47,28 @@ const navItems = [
   { label: "Billing", href: "/portal/billing", icon: CreditCard },
 ]
 
-const adminItems = [
-  { label: "Admin", href: "/portal/admin", icon: Shield },
+// Admin: Operations group
+const adminOpsItems = [
+  { label: "Clients", href: "/portal/admin", icon: Shield },
+  { label: "Manage", href: "/portal/admin/manage", icon: ClipboardList },
   { label: "Prospects", href: "/portal/admin/prospects", icon: UserPlus },
-  { label: "Cold Calls", href: "/portal/cold-calls", icon: PhoneCall },
-  { label: "Power Dialer", href: "/portal/admin/calls", icon: Phone },
-  { label: "Call Logs", href: "/portal/calls", icon: Headphones },
   { label: "Control Panel", href: "/portal/admin/control", icon: Cpu },
+]
+
+// Admin: Sales group
+const adminSalesItems = [
+  { label: "Cold Calls", href: "/portal/cold-calls", icon: PhoneCall },
+  { label: "Call Logs", href: "/portal/calls", icon: Headphones },
+]
+
+// Admin: The Move group
+const adminMoveItems = [
   { label: "The Move", href: "/portal/the-move", icon: MapPin },
   { label: "Door Knocks", href: "/portal/the-move/knocks", icon: DoorOpen },
   { label: "AI Insights", href: "/portal/the-move/insights", icon: Brain },
 ]
+
+type NavItem = { label: string; href: string; icon: React.ComponentType<{ className?: string }> }
 
 interface SidebarNavProps {
   user: {
@@ -63,6 +76,39 @@ interface SidebarNavProps {
     email: string
     role: string
   }
+}
+
+function NavGroup({ label, items, pathname, onNavClick }: {
+  label: string
+  items: NavItem[]
+  pathname: string
+  onNavClick: () => void
+}) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => {
+            const isActive =
+              item.href === "/portal/dashboard" || item.href === "/portal/admin"
+                ? pathname === item.href
+                : pathname.startsWith(item.href)
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
+                  <Link href={item.href} onClick={onNavClick}>
+                    <item.icon className={isActive ? "size-4 text-orange-500" : "size-4"} />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  )
 }
 
 export function SidebarNav({ user }: SidebarNavProps) {
@@ -80,6 +126,8 @@ export function SidebarNav({ user }: SidebarNavProps) {
     return navItems.filter((item) => config.allowedRoutes.includes(item.href))
   })()
 
+  const isAdmin = user.role === "admin"
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
@@ -89,62 +137,33 @@ export function SidebarNav({ user }: SidebarNavProps) {
         </Link>
       </SidebarHeader>
       <SidebarContent>
+        <NavGroup label="Navigation" items={filteredNavItems} pathname={pathname} onNavClick={handleNavClick} />
+        {isAdmin && (
+          <>
+            <NavGroup label="Operations" items={adminOpsItems} pathname={pathname} onNavClick={handleNavClick} />
+            <NavGroup label="Sales" items={adminSalesItems} pathname={pathname} onNavClick={handleNavClick} />
+            <NavGroup label="The Move" items={adminMoveItems} pathname={pathname} onNavClick={handleNavClick} />
+          </>
+        )}
+        {/* Settings — always visible */}
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredNavItems.map((item) => {
-                const isActive =
-                  item.href === "/portal/dashboard"
-                    ? pathname === "/portal/dashboard"
-                    : pathname.startsWith(item.href)
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.label}
-                    >
-                      <Link href={item.href} onClick={handleNavClick}>
-                        <item.icon className={isActive ? "size-4 text-orange-500" : "size-4"} />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith("/portal/settings")}
+                  tooltip="Settings"
+                >
+                  <Link href="/portal/settings" onClick={handleNavClick}>
+                    <Settings className={pathname.startsWith("/portal/settings") ? "size-4 text-orange-500" : "size-4"} />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {user.role === "admin" && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Management</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminItems.map((item) => {
-                  const isActive =
-                    item.href === "/portal/admin"
-                      ? pathname === "/portal/admin"
-                      : pathname.startsWith(item.href)
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        tooltip={item.label}
-                      >
-                        <Link href={item.href} onClick={handleNavClick}>
-                          <item.icon className={isActive ? "size-4 text-orange-500" : "size-4"} />
-                          <span>{item.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>

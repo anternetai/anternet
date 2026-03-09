@@ -22,6 +22,12 @@ export function PortalShell({ children, user, initialTeamMember }: PortalShellPr
   return (
     <PortalAuthProvider initialUser={user} initialTeamMember={initialTeamMember ?? null}>
       <SidebarProvider>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:ring-2 focus:ring-ring"
+        >
+          Skip to main content
+        </a>
         <SidebarNav
           user={{
             name: displayName,
@@ -31,9 +37,9 @@ export function PortalShell({ children, user, initialTeamMember }: PortalShellPr
         />
         <SidebarInset>
           <PortalHeader />
-          <div className="flex-1 overflow-auto p-4 md:p-6">
+          <main id="main-content" className="flex-1 overflow-auto p-4 md:p-6">
             {children}
-          </div>
+          </main>
         </SidebarInset>
       </SidebarProvider>
     </PortalAuthProvider>

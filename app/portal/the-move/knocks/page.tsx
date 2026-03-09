@@ -11,8 +11,6 @@ import { KnockHistoryTab } from "@/components/portal/the-move/knock-history-tab"
 import { KnockMapTab } from "@/components/portal/the-move/knock-map-tab"
 import type { DoorKnockSession, DoorKnockNeighborhood, KnockStats, GpsPin } from "@/lib/the-move/types"
 
-const ADMIN_ID = "bba79829-7852-4f81-aa2e-393650138e7c"
-
 const TABS = ["Log", "Stats", "History", "Map"] as const
 type Tab = (typeof TABS)[number]
 
@@ -32,7 +30,16 @@ export default function DoorKnockPage() {
     async function checkAuth() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || user.id !== ADMIN_ID) {
+      if (!user) {
+        router.push("/portal/dashboard")
+        return
+      }
+      const { data: profile } = await supabase
+        .from("agency_clients")
+        .select("role")
+        .eq("auth_user_id", user.id)
+        .single()
+      if (profile?.role !== "admin") {
         router.push("/portal/dashboard")
         return
       }
@@ -160,6 +167,7 @@ export default function DoorKnockPage() {
         <div className="flex items-center gap-3 mb-5">
           <Link
             href="/portal/the-move"
+            aria-label="Back to The Move"
             className="flex size-9 items-center justify-center rounded-full border border-stone-800 text-stone-400 hover:text-stone-200"
           >
             <ArrowLeft className="size-4" />
@@ -174,11 +182,14 @@ export default function DoorKnockPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="mb-3 flex rounded-xl border border-stone-800 bg-stone-900/50 p-1">
+        <div role="tablist" aria-label="Door knock sections" className="mb-3 flex rounded-xl border border-stone-800 bg-stone-900/50 p-1">
           {TABS.map((t) => (
             <button
               key={t}
               type="button"
+              role="tab"
+              aria-selected={tab === t}
+              aria-controls={`tabpanel-${t.toLowerCase()}`}
               onClick={() => setTab(t)}
               className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${
                 tab === t

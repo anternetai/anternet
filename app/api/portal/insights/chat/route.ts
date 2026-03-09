@@ -41,15 +41,21 @@ async function callClaude(
   return data.content?.[0]?.text ?? null
 }
 
-const ADMIN_ID = "bba79829-7852-4f81-aa2e-393650138e7c"
-
 export async function POST(req: NextRequest) {
-  const auth = await createServerClient()
+  const supabase = await createServerClient()
   const {
     data: { user },
-  } = await auth.auth.getUser()
-  if (!user || user.id !== ADMIN_ID) {
+  } = await supabase.auth.getUser()
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const { data: profile } = await supabase
+    .from("agency_clients")
+    .select("role")
+    .eq("auth_user_id", user.id)
+    .single()
+  if (profile?.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const body = await req.json().catch(() => ({}))

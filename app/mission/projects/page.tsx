@@ -140,6 +140,10 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Demo Mode Banner */}
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400" role="alert">
+        <strong>Demo Mode</strong> — This page displays sample data for preview purposes. Data shown is not real.
+      </div>
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

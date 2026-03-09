@@ -270,11 +270,9 @@ function ControlPanelContent() {
     }
   }, [])
 
-  // Initial fetch + polling
+  // Initial fetch (realtime subscription handles updates)
   useEffect(() => {
     fetchTasks()
-    const interval = setInterval(fetchTasks, 5000) // poll every 5s
-    return () => clearInterval(interval)
   }, [fetchTasks])
 
   // Realtime subscription

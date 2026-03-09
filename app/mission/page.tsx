@@ -150,6 +150,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Demo Mode Banner */}
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400" role="alert">
+        <strong>Demo Mode</strong> — This page displays sample data for preview purposes. Data shown is not real.
+      </div>
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">
