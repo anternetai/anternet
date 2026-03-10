@@ -48,17 +48,15 @@ IMPORTANT — Voicemail detection:
 - A voice saying their name once in a short recording is likely a voicemail greeting — NOT "owner reached".
 - If the caller's manual disposition says "no_answer" or "voicemail", trust that over your own analysis.
 
-Dispositions:
+Dispositions (use ONLY these exact keys):
 - no_answer: Rang, nobody picked up / dead air / ring tone only
-- voicemail: Went to VM, heard voicemail greeting, or left a message. Includes ANY call where only an automated or recorded greeting plays.
+- voicemail: Went to VM, heard voicemail greeting, or left a message. Includes ANY call where only an automated or recorded greeting plays with no back-and-forth dialogue.
 - gatekeeper: Spoke with non-owner (receptionist, employee)
-- owner_no_pitch: Reached owner but hung up before pitch
-- owner_pitched: Pitched the owner but no commitment
+- conversation: Reached the owner and had any conversation (short or long, pitched or not). This covers both brief exchanges and full pitches.
 - demo_booked: Owner agreed to a meeting/demo
-- not_interested: Owner explicitly said no
-- follow_up: Owner interested but needs time — AI determines timing
-- do_not_call: Asked to be removed / aggressive refusal
+- not_interested: Owner explicitly said no / asked to be removed / hostile refusal
 - wrong_number: Disconnected, wrong number, out of service
+- callback: Owner interested but needs time / wants a callback later
 
 Follow-up timing recommendations:
 - 2_days: Light interest / wanted more time / "call me later this week"
@@ -260,7 +258,7 @@ async function callAnthropic(userPrompt: string): Promise<RawAIResponse | null> 
 function buildFallbackAnalysis(transcript: string): AIAnalysis {
   // Simple keyword-based disposition without AI
   const lower = transcript.toLowerCase()
-  let disposition: AIDisposition = "owner_pitched"
+  let disposition: AIDisposition = "conversation"
   let followUpRecommendation: FollowUpRecommendation = "1_week"
 
   if (!transcript || transcript.length < 20) {

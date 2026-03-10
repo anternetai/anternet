@@ -158,20 +158,18 @@ export interface CallRecording {
 // ─── AI Disposition (extended) ────────────────────────────────────────────────
 
 /**
- * Extended disposition set used by AI analysis.
- * Superset of DialerOutcome — adds granular spoke_owner states.
+ * Disposition set used by AI analysis.
+ * Matches DialerOutcome exactly so AI suggestions map 1:1 to app dispositions.
  */
 export type AIDisposition =
   | "no_answer"
   | "voicemail"
   | "gatekeeper"
-  | "owner_no_pitch"
-  | "owner_pitched"
+  | "conversation"
   | "demo_booked"
   | "not_interested"
-  | "follow_up"
-  | "do_not_call"
   | "wrong_number"
+  | "callback"
 
 // ─── Follow-Up Recommendation ─────────────────────────────────────────────────
 

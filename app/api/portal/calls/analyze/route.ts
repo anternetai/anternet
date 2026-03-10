@@ -132,7 +132,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<AnalyzeRespon
       .eq("id", body.leadId)
 
     leadUpdated = !updateErr
-  } else if (body.leadId && analysis.disposition === "do_not_call") {
+  } else if (body.leadId && analysis.disposition === "not_interested") {
     await admin
       .from("dialer_leads")
       .update({ status: "completed", not_interested: true })
