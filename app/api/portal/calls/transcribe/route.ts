@@ -112,6 +112,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<TranscribeRes
   let leadId: string | null = null
   let callHistoryId: string | null = null
   let durationSeconds: number | null = null
+  let userDisposition: string | null = null
 
   // ── Parse input ──────────────────────────────────────────────────────────
   if (contentType.includes("multipart/form-data")) {
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<TranscribeRes
     callHistoryId = (formData.get("call_history_id") as string) || null
     const durStr = formData.get("duration_seconds") as string | null
     durationSeconds = durStr ? parseInt(durStr) : null
+    userDisposition = (formData.get("user_disposition") as string) || null
 
     if (audioFile) {
       const arrayBuffer = await audioFile.arrayBuffer()
@@ -135,6 +137,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<TranscribeRes
     leadId = body.lead_id || null
     callHistoryId = body.call_history_id || null
     durationSeconds = body.duration_seconds || null
+    userDisposition = body.user_disposition || null
   }
 
   // ── Fetch audio from URL if not uploaded directly ────────────────────────
@@ -222,6 +225,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<TranscribeRes
       ownerName: (leadContext.owner_name as string) || undefined,
       state: (leadContext.state as string) || undefined,
       durationSeconds: durationSeconds || undefined,
+      userDisposition: userDisposition || undefined,
     })
   } catch (e) {
     console.error("[transcribe] AI analysis error:", e)

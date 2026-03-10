@@ -42,9 +42,15 @@ The "Face-Melter" cold call script has these key sections:
 7. DISCOVERY QUESTIONS — How's business? Lead sources? Goal volume?
 8. MEETING BOOKED — Confirm time, email, calendar invite
 
+IMPORTANT — Voicemail detection:
+- If the transcript is short (< 45 seconds) and only contains ONE voice (a greeting/recording), it's almost always a VOICEMAIL greeting, NOT a real conversation.
+- Voicemail indicators: "please leave your message", "after the tone/beep", "is not available", "the person you are calling", "mailbox is full", or any automated-sounding greeting with no back-and-forth dialogue.
+- A voice saying their name once in a short recording is likely a voicemail greeting — NOT "owner reached".
+- If the caller's manual disposition says "no_answer" or "voicemail", trust that over your own analysis.
+
 Dispositions:
-- no_answer: Rang, nobody picked up / dead air
-- voicemail: Went to VM or left a message
+- no_answer: Rang, nobody picked up / dead air / ring tone only
+- voicemail: Went to VM, heard voicemail greeting, or left a message. Includes ANY call where only an automated or recorded greeting plays.
 - gatekeeper: Spoke with non-owner (receptionist, employee)
 - owner_no_pitch: Reached owner but hung up before pitch
 - owner_pitched: Pitched the owner but no commitment
@@ -76,6 +82,7 @@ const buildUserPrompt = (opts: {
   state?: string
   leadContext?: string
   durationSeconds?: number
+  userDisposition?: string
 }): string => {
   const parts: string[] = []
 
@@ -96,6 +103,11 @@ const buildUserPrompt = (opts: {
     const mins = Math.floor(opts.durationSeconds / 60)
     const secs = opts.durationSeconds % 60
     parts.push(`\nCall duration: ${mins}m ${secs}s`)
+  }
+
+  if (opts.userDisposition) {
+    parts.push(`\nCALLER'S MANUAL DISPOSITION: ${opts.userDisposition}`)
+    parts.push(`The caller (Anthony) logged this disposition manually. Give strong weight to this — he knows whether he actually spoke to someone or hit voicemail. If he says "no_answer" or "voicemail", the audio is almost certainly a voicemail greeting or ring tone, NOT an actual conversation with the owner.`)
   }
 
   parts.push(`
@@ -343,6 +355,7 @@ export async function runAIAnalysis(opts: {
   state?: string
   leadContext?: string
   durationSeconds?: number
+  userDisposition?: string
 }): Promise<AIAnalysis> {
   const userPrompt = buildUserPrompt(opts)
 

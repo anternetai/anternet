@@ -671,6 +671,8 @@ export function CallCockpit() {
   const lastCallBlobRef = useRef<Blob | null>(null)
   // Snapshot of the lead being called — so auto-submit uses correct lead even after advancing
   const callLeadRef = useRef<DialerLead | null>(null)
+  // After disposition, save the next lead's ID so we can re-anchor when SWR refreshes
+  const targetLeadIdRef = useRef<string | null>(null)
 
   const leads = queue?.leads || []
   const currentLead = leads[currentIndex] ?? null
@@ -740,12 +742,21 @@ export function CallCockpit() {
         }
       }
     },
-    [startRecording, stopRecording, durationMs, currentLead, currentIndex, leads.length, mutate, submitDisposition, resetForm, resetRecording]
+    [startRecording, stopRecording, durationMs, currentLead, resetRecording]
   )
 
+  // Re-anchor index when leads array changes (e.g. after SWR re-fetch removes
+  // a dispositioned lead). Without this, the index drifts and skips leads.
   useEffect(() => {
+    if (targetLeadIdRef.current && leads.length > 0) {
+      const targetIdx = leads.findIndex((l) => l.id === targetLeadIdRef.current)
+      if (targetIdx >= 0 && targetIdx !== currentIndex) {
+        setCurrentIndex(targetIdx)
+      }
+      targetLeadIdRef.current = null
+    }
     if (leads.length > 0 && currentIndex >= leads.length) setCurrentIndex(0)
-  }, [leads.length, currentIndex])
+  }, [leads, currentIndex])
 
   // Restore queue position from localStorage on first load
   useEffect(() => {
@@ -825,6 +836,7 @@ export function CallCockpit() {
         formData.append("audio", blob, `call_${Date.now()}.${ext}`)
         formData.append("lead_id", lead.id)
         formData.append("duration_seconds", String(Math.floor(durationMs / 1000)))
+        formData.append("user_disposition", outcome)
 
         const res = await fetch("/api/portal/calls/transcribe", {
           method: "POST",
@@ -942,15 +954,21 @@ export function CallCockpit() {
         resetRecording()
         callLeadRef.current = null
 
-        // NOW advance to next lead (after disposition is saved)
+        // NOW advance to next lead (after disposition is saved).
+        // Save the target lead's ID so we can re-anchor after SWR refreshes.
+        let nextLeadId: string | null = null
         if (currentIndex < leads.length - 1) {
+          nextLeadId = leads[currentIndex + 1]?.id || null
           setCurrentIndex((i) => i + 1)
         } else {
-          await mutate()
           setCurrentIndex(0)
+          nextLeadId = leads[0]?.id || null
         }
+        // Store the target so the leads-change effect can re-anchor
+        targetLeadIdRef.current = nextLeadId
 
         // Re-fetch queue in background so phone number rotation picks next number
+        // and the dispositioned lead is removed from the array
         mutate()
 
         // Run AI analysis in background if we have a recording (non-blocking)
@@ -1008,16 +1026,20 @@ export function CallCockpit() {
     setSessionDials((c) => c + 1)
     resetForm()
 
-    // Advance to next lead
+    // Advance to next lead and set re-anchor target
+    let nextLeadId: string | null = null
     if (currentIndex < leads.length - 1) {
+      nextLeadId = leads[currentIndex + 1]?.id || null
       setCurrentIndex((i) => i + 1)
     } else {
-      await mutate()
       setCurrentIndex(0)
+      nextLeadId = leads[0]?.id || null
     }
+    targetLeadIdRef.current = nextLeadId
+    mutate()
 
     // Auto-dial disabled — user clicks Dial manually
-  }, [currentLead, currentIndex, leads.length, mutate, resetForm, submitDisposition])
+  }, [currentLead, currentIndex, leads, mutate, resetForm, submitDisposition])
 
   const handleSync = useCallback(async () => {
     setSyncing(true)
