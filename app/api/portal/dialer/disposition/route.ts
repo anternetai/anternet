@@ -238,13 +238,34 @@ export async function POST(req: NextRequest) {
           })
           .eq("id", callerNumberId)
 
-        // Auto-retire if too many spam reports
+        // Auto-retire if too many spam reports + Slack alert
         if ((phoneNum.spam_reports || 0) > 2 && phoneNum.status !== "retired") {
           await admin
             .from("dialer_phone_numbers")
             .update({ status: "retired" })
             .eq("id", callerNumberId)
+
+          // Alert Anthony via Slack
+          try {
+            const slackToken = process.env.SLACK_BOT_TOKEN
+            if (slackToken) {
+              const { count: remaining } = await admin
+                .from("dialer_phone_numbers")
+                .select("*", { count: "exact", head: true })
+                .eq("status", "active")
+              const activeLeft = remaining || 0
+              await fetch("https://slack.com/api/chat.postMessage", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${slackToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  channel: "U0ABZDLENJ1",
+                  text: `🚨 *Phone number retired:* ${phoneNum.phone_number} (${phoneNum.spam_reports}+ spam reports)\n*Active numbers remaining:* ${activeLeft}\n${activeLeft <= 1 ? "⚠️ *Buy more numbers ASAP* — you're almost out!" : ""}`,
+                }),
+              })
+            }
+          } catch {} // non-fatal
         }
+
       }
     } catch (err) {
       console.error("Failed to update phone number counters:", err)

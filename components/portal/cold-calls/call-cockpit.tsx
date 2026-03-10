@@ -1118,6 +1118,48 @@ export function CallCockpit() {
       {/* Stats */}
       <StatsBar sessionDials={sessionDials} sessionDemos={sessionDemos} timeToday={sessionTime} />
 
+      {/* Outbound number + pool health */}
+      {queue?.selectedNumber && (
+        <div className="flex items-center gap-1.5 shrink-0" title={`Calling from ${queue.selectedNumber.phone_number} (${queue.selectedNumber.calls_this_hour}/${queue.selectedNumber.max_calls_per_hour} this hour)\n${queue.phonePoolHealth?.active || 0} active, ${queue.phonePoolHealth?.cooling || 0} cooling, ${queue.phonePoolHealth?.retired || 0} retired`}>
+          <Phone className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {queue.selectedNumber.phone_number.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3")}
+          </span>
+          <span className={cn(
+            "text-[9px] font-bold px-1 py-0.5 rounded",
+            (queue.phonePoolHealth?.warnings?.length || 0) > 0
+              ? "bg-amber-500/20 text-amber-400"
+              : "bg-green-500/20 text-green-400"
+          )}>
+            {queue.phonePoolHealth?.active || 0}/{(queue.phonePoolHealth?.active || 0) + (queue.phonePoolHealth?.cooling || 0) + (queue.phonePoolHealth?.retired || 0)}
+          </span>
+        </div>
+      )}
+      {queue?.phonePoolHealth?.warnings && queue.phonePoolHealth.warnings.length > 0 && (
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] text-amber-400 font-medium" title={queue.phonePoolHealth.warnings.join("\n")}>
+            {queue.phonePoolHealth.warnings.length === 1 ? queue.phonePoolHealth.warnings[0] : `${queue.phonePoolHealth.warnings.length} warnings`}
+          </span>
+        </div>
+      )}
+      {queue?.selectedNumber && (
+        <button
+          onClick={async () => {
+            if (!confirm(`Flag ${queue.selectedNumber!.phone_number} as spam? (Retires at 3 reports)`)) return
+            await fetch("/api/portal/dialer/report-spam", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ phoneNumberId: queue.selectedNumber!.id }),
+            })
+            mutate()
+          }}
+          className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors shrink-0"
+          title="Flag current outbound number as spam — rotates to next number"
+        >
+          Flag Spam
+        </button>
+      )}
+
       {/* Timezone picker — switch queue to any timezone */}
       <div className="flex items-center gap-1 shrink-0">
         {(["ET", "CT", "MT", "PT"] as const).map((tz) => (

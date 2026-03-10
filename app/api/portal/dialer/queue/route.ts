@@ -117,14 +117,37 @@ export async function GET(req: NextRequest) {
     breakdownByTimezone[tz] = count || 0
   }
 
-  // 7. Select best outbound number from pool
+  // 7. Select best outbound number from pool + phone health
   let selectedNumber: any = null
+  let phonePoolHealth: { active: number; cooling: number; retired: number; warnings: string[] } = {
+    active: 0, cooling: 0, retired: 0, warnings: [],
+  }
   try {
-    const { data: availableNumbers } = await admin
+    // Fetch ALL numbers for health stats
+    const { data: allNumbers } = await admin
       .from("dialer_phone_numbers")
       .select("*")
-      .eq("status", "active")
       .order("calls_this_hour", { ascending: true })
+
+    if (allNumbers) {
+      phonePoolHealth.active = allNumbers.filter((n: any) => n.status === "active").length
+      phonePoolHealth.cooling = allNumbers.filter((n: any) => n.status === "cooling").length
+      phonePoolHealth.retired = allNumbers.filter((n: any) => n.status === "retired").length
+
+      // Warn if any active numbers have spam reports
+      const spammy = allNumbers.filter((n: any) => n.status === "active" && (n.spam_reports || 0) > 0)
+      for (const n of spammy) {
+        phonePoolHealth.warnings.push(`${n.phone_number} has ${n.spam_reports} spam report(s)`)
+      }
+      // Warn if running low on numbers
+      if (phonePoolHealth.active === 0) {
+        phonePoolHealth.warnings.push("NO active numbers — all retired or cooling!")
+      } else if (phonePoolHealth.active === 1) {
+        phonePoolHealth.warnings.push("Only 1 active number left — buy more numbers soon")
+      }
+    }
+
+    const availableNumbers = (allNumbers || []).filter((n: any) => n.status === "active")
 
     if (availableNumbers && availableNumbers.length > 0) {
       // Filter out numbers at max capacity
@@ -171,5 +194,6 @@ export async function GET(req: NextRequest) {
           max_calls_per_hour: selectedNumber.max_calls_per_hour,
         }
       : null,
+    phonePoolHealth,
   })
 }

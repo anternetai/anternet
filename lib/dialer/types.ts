@@ -60,6 +60,12 @@ export interface DialerQueueResponse {
   callbacksDue: DialerLead[]
   breakdownByTimezone: Record<DialerTimezone, number>
   selectedNumber: SelectedNumber | null
+  phonePoolHealth?: {
+    active: number
+    cooling: number
+    retired: number
+    warnings: string[]
+  }
 }
 
 export interface SelectedNumber {
