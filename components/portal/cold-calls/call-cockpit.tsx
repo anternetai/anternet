@@ -893,7 +893,11 @@ export function CallCockpit() {
 
   const handleDisposition = useCallback(
     async (outcome: ColdCallOutcome) => {
-      if (!currentLead || saving) return
+      // Use callLeadRef (the lead we actually called) — currentLead may have
+      // shifted if the queue re-fetched or index changed between call end and
+      // the user clicking a disposition button.
+      const leadSnap = callLeadRef.current || currentLead
+      if (!leadSnap || saving) return
 
       if (outcome === "conversation" && !showNoteField) {
         setShowNoteField(true)
@@ -910,7 +914,6 @@ export function CallCockpit() {
 
       setSaving(true)
       try {
-        const leadSnap = currentLead
         const notesSnap = liveNotes || notes
         const demoDateSnap = demoDate
 
@@ -931,10 +934,15 @@ export function CallCockpit() {
         setSessionDials((c) => c + 1)
         if (outcome === "demo_booked") setSessionDemos((c) => c + 1)
 
+        // CRITICAL: Submit disposition FIRST, before advancing.
+        // This ensures the outcome is logged against the correct lead.
+        await submitDisposition(leadSnap, outcome, notesSnap, demoDateSnap)
+
         resetForm()
         resetRecording()
+        callLeadRef.current = null
 
-        // Advance to next lead
+        // NOW advance to next lead (after disposition is saved)
         if (currentIndex < leads.length - 1) {
           setCurrentIndex((i) => i + 1)
         } else {
@@ -942,16 +950,10 @@ export function CallCockpit() {
           setCurrentIndex(0)
         }
 
-        // Always submit the disposition (updates phone number counters)
-        await submitDisposition(leadSnap, outcome, notesSnap, demoDateSnap)
-
         // Re-fetch queue in background so phone number rotation picks next number
         mutate()
 
-        // Auto-dial disabled — user clicks Dial manually
-
         // Run AI analysis in background if we have a recording (non-blocking)
-        // Upload for ALL outcomes that have recordings (not just conversation)
         if (blob && blob.size > 0) {
           setPendingLead(leadSnap)
           uploadAndAnalyze(leadSnap, blob, outcome).catch(console.error)
