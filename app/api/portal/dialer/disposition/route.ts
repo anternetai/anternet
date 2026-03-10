@@ -19,11 +19,12 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { leadId, outcome, notes, demoDate, callbackAt, callerNumberId } = body as {
+  const { leadId, outcome, notes, demoDate, demoEmail, callbackAt, callerNumberId } = body as {
     leadId: string
     outcome: DialerOutcome
     notes?: string
     demoDate?: string
+    demoEmail?: string
     callbackAt?: string
     callerNumberId?: string
   }
@@ -213,8 +214,8 @@ export async function POST(req: NextRequest) {
           last_name: lastName,
           business_phone: lead.phone_number,
           cell_phone_for_notifications: lead.phone_number,
-          email_for_notifications: "pending@homefieldhub.com",
-          business_email_for_leads: "pending@homefieldhub.com",
+          email_for_notifications: demoEmail || "pending@homefieldhub.com",
+          business_email_for_leads: demoEmail || "pending@homefieldhub.com",
           state: lead.state || null,
           website_url: lead.website || null,
           pipeline_stage: pipelineStage,

@@ -599,6 +599,7 @@ export function CallCockpit() {
   const [notes, setNotes] = useState("")
   const [liveNotes, setLiveNotes] = useState("")
   const [demoDate, setDemoDate] = useState("")
+  const [demoEmail, setDemoEmail] = useState("")
   const [saving, setSaving] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [selectedOutcome, setSelectedOutcome] = useState<ColdCallOutcome | null>(null)
@@ -681,6 +682,7 @@ export function CallCockpit() {
   const resetForm = useCallback(() => {
     setNotes("")
     setDemoDate("")
+    setDemoEmail("")
     setShowNoteField(false)
     setShowDemoDatePicker(false)
     setSelectedOutcome(null)
@@ -688,7 +690,7 @@ export function CallCockpit() {
   }, [])
 
   const submitDisposition = useCallback(
-    async (lead: DialerLead, outcome: ColdCallOutcome, notesText: string, demoDateStr: string) => {
+    async (lead: DialerLead, outcome: ColdCallOutcome, notesText: string, demoDateStr: string, emailStr?: string) => {
       await fetch("/api/portal/dialer/disposition", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -697,6 +699,7 @@ export function CallCockpit() {
           outcome: outcome as DialerOutcome,
           notes: notesText || undefined,
           demoDate: demoDateStr || undefined,
+          demoEmail: emailStr || undefined,
           callerNumberId: queue?.selectedNumber?.id || undefined,
         }),
       })
@@ -958,6 +961,7 @@ export function CallCockpit() {
       try {
         const notesSnap = liveNotes || notes
         const demoDateSnap = demoDate
+        const demoEmailSnap = demoEmail
 
         // CRITICAL: If a call is still active (e.g. voicemail playing), hang up FIRST.
         // Without this, voicemail audio keeps playing after logging disposition.
@@ -978,7 +982,7 @@ export function CallCockpit() {
 
         // CRITICAL: Submit disposition FIRST, before advancing.
         // This ensures the outcome is logged against the correct lead.
-        await submitDisposition(leadSnap, outcome, notesSnap, demoDateSnap)
+        await submitDisposition(leadSnap, outcome, notesSnap, demoDateSnap, demoEmailSnap)
 
         resetForm()
         resetRecording()
@@ -1020,6 +1024,7 @@ export function CallCockpit() {
       notes,
       liveNotes,
       demoDate,
+      demoEmail,
       isRecording,
       currentIndex,
       leads.length,
@@ -1365,19 +1370,44 @@ export function CallCockpit() {
             className="resize-none text-sm"
           />
           {showDemoDatePicker && (
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-muted-foreground">Demo date:</label>
-              <Input
-                type="datetime-local"
-                value={demoDate}
-                onChange={(e) => setDemoDate(e.target.value)}
-                className="h-8 w-auto text-sm"
-              />
+            <div className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+              <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">
+                Book the Demo
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Date & Time *</label>
+                  <Input
+                    type="datetime-local"
+                    value={demoDate}
+                    onChange={(e) => setDemoDate(e.target.value)}
+                    className="h-8 text-sm mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Business Email</label>
+                  <Input
+                    type="email"
+                    placeholder="their@email.com"
+                    value={demoEmail}
+                    onChange={(e) => setDemoEmail(e.target.value)}
+                    className="h-8 text-sm mt-1"
+                  />
+                </div>
+              </div>
+              {!demoDate && (
+                <p className="text-[10px] text-amber-400">Pick a date & time to continue</p>
+              )}
             </div>
           )}
-          <Button onClick={confirmOutcome} disabled={saving} size="sm" className="w-full gap-2">
+          <Button
+            onClick={confirmOutcome}
+            disabled={saving || (showDemoDatePicker && !demoDate)}
+            size="sm"
+            className="w-full gap-2"
+          >
             {saving ? <Loader2 className="size-4 animate-spin" /> : <ChevronRight className="size-4" />}
-            Confirm &amp; Next
+            {showDemoDatePicker ? "Book Demo & Next" : "Confirm & Next"}
           </Button>
         </div>
       )}
