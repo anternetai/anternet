@@ -62,8 +62,10 @@ Follow-up timing recommendations:
 - 2_days: Light interest / wanted more time / "call me later this week"
 - 1_week: Mild interest / "I'm busy right now" / "try me next week"
 - 1_month: Seasonal / "call me in spring" / wrapping up jobs
-- do_not_call: Hostile, DNC request
-- none: No follow-up needed (call completed, demo booked, wrong number)
+- do_not_call: Hostile, DNC request, aggressive refusal
+- none: No follow-up needed (demo booked, wrong number, not interested)
+
+CRITICAL RULE: If the disposition is "not_interested", the follow-up MUST be "none" or "do_not_call". NEVER recommend a follow-up for someone who said they're not interested — that's a waste of time and annoys the prospect. "Not interested" means move on.
 
 Coaching grades (1-10 scale):
 - tonality: Confidence, downswings, pacing (not desperate, not monotone)
