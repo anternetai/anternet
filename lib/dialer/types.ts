@@ -123,27 +123,18 @@ export const STATE_TIMEZONE_MAP: Record<string, DialerTimezone> = {
   HI: "PT", AK: "PT", PR: "ET", VI: "ET", GU: "PT",
 }
 
-// Timezone cascade schedule: ET hour → timezone to call
+// Timezone cascade schedule: 1-hour blocks starting at :30
 // Strategy: hit each timezone at 7:30 AM local time (THE MOVE — early morning blitz)
+// Each block runs from :30 to :30 (e.g., 7:30-8:30 ET = Eastern)
 // Lunch window at noon, EOD follow-ups at 4 PM ET. Gaps = PW job hours (manual TZ select).
 
-// Mon-Thu: full schedule with 1-hour blocks per timezone
 export const TIMEZONE_SCHEDULE: { etHour: number; timezone: DialerTimezone; label: string }[] = [
-  { etHour: 7, timezone: "ET", label: "7-8 AM ET → Eastern leads (7:30 AM their time)" },
-  { etHour: 8, timezone: "CT", label: "8-9 AM ET → Central leads (7:30 AM their time)" },
-  { etHour: 9, timezone: "MT", label: "9-10 AM ET → Mountain leads (7:30 AM their time)" },
-  { etHour: 10, timezone: "PT", label: "10-11 AM ET → Pacific leads (7:30 AM their time)" },
+  { etHour: 7, timezone: "ET", label: "7:30-8:30 AM ET → Eastern leads" },
+  { etHour: 8, timezone: "CT", label: "8:30-9:30 AM ET → Central leads" },
+  { etHour: 9, timezone: "MT", label: "9:30-10:30 AM ET → Mountain leads" },
+  { etHour: 10, timezone: "PT", label: "10:30-11:30 AM ET → Pacific leads" },
   { etHour: 12, timezone: "ET", label: "12-12:30 PM ET → Eastern/Central lunch window" },
   { etHour: 16, timezone: "ET", label: "4-5 PM ET → Eastern EOD (Tue-Fri)" },
-]
-
-// Friday: same 1-hour blocks but shifted to start at 7:30 AM local time
-// (30 min later than Mon-Thu which targets 7:00 AM local)
-export const FRIDAY_TIMEZONE_SCHEDULE: { etHour: number; timezone: DialerTimezone; label: string }[] = [
-  { etHour: 7, timezone: "ET", label: "7:30-8:30 AM ET → Eastern (7:30 AM their time)" },
-  { etHour: 8, timezone: "CT", label: "8:30-9:30 AM ET → Central (7:30 AM their time)" },
-  { etHour: 9, timezone: "MT", label: "9:30-10:30 AM ET → Mountain (7:30 AM their time)" },
-  { etHour: 10, timezone: "PT", label: "10:30-11:30 AM ET → Pacific (7:30 AM their time)" },
 ]
 
 export function getCurrentETHour(): number {
@@ -153,6 +144,12 @@ export function getCurrentETHour(): number {
   return etTime.getHours()
 }
 
+export function getCurrentETMinutes(): number {
+  const now = new Date()
+  const etTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }))
+  return etTime.getMinutes()
+}
+
 export function isFriday(): boolean {
   const now = new Date()
   const etTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }))
@@ -160,18 +157,38 @@ export function isFriday(): boolean {
 }
 
 export function getActiveSchedule() {
-  return isFriday() ? FRIDAY_TIMEZONE_SCHEDULE : TIMEZONE_SCHEDULE
+  return TIMEZONE_SCHEDULE
 }
 
+// Get the effective schedule slot for the current time.
+// Blocks run :30 to :30, so at 8:03 ET (minutes < 30) we're still in the
+// 7:30-8:30 block (etHour 7 = ET), not the 8:30-9:30 block (etHour 8 = CT).
+// Exception: lunch (12) and EOD (16) blocks start on the hour.
 export function getTimezoneForHour(etHour: number): DialerTimezone | null {
+  const minutes = getCurrentETMinutes()
   const schedule = getActiveSchedule()
-  const entry = schedule.find((s) => s.etHour === etHour)
+
+  // For the morning cascade (hours 7-11), blocks start at :30
+  // Before :30, you're still in the previous hour's block
+  let lookupHour = etHour
+  if (etHour >= 7 && etHour <= 11 && minutes < 30) {
+    lookupHour = etHour - 1
+  }
+
+  const entry = schedule.find((s) => s.etHour === lookupHour)
   return entry?.timezone ?? null
 }
 
 export function getScheduleForHour(etHour: number) {
+  const minutes = getCurrentETMinutes()
   const schedule = getActiveSchedule()
-  return schedule.find((s) => s.etHour === etHour) ?? null
+
+  let lookupHour = etHour
+  if (etHour >= 7 && etHour <= 11 && minutes < 30) {
+    lookupHour = etHour - 1
+  }
+
+  return schedule.find((s) => s.etHour === lookupHour) ?? null
 }
 
 // Call transcript types

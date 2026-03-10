@@ -2,9 +2,9 @@ import { createClient } from "@supabase/supabase-js"
 import { createClient as createServerClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
 import {
-  TIMEZONE_SCHEDULE,
   getCurrentETHour,
   getTimezoneForHour,
+  getScheduleForHour,
   type DialerTimezone,
   type DialerLead,
 } from "@/lib/dialer/types"
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
   const etHour = getCurrentETHour()
   const currentTimezone = forceTimezone || getTimezoneForHour(etHour)
-  const schedule = TIMEZONE_SCHEDULE.find((s) => s.etHour === etHour)
+  const schedule = getScheduleForHour(etHour)
 
   const today = new Date().toISOString().split("T")[0]
   const now = new Date().toISOString()
