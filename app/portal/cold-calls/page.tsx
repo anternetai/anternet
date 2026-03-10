@@ -1,87 +1,85 @@
 "use client"
 
-import { use, Suspense, useState, useEffect } from "react"
+import { use, Suspense, useState, useEffect, lazy } from "react"
 import { redirect } from "next/navigation"
 import { PortalAuthContext } from "@/components/portal/portal-auth-provider"
-import { ColdCallTracker } from "@/components/portal/cold-calls/cold-call-tracker"
-import { CallCockpit } from "@/components/portal/cold-calls/call-cockpit"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { LayoutDashboard, Gauge, Sparkles } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Gauge, BarChart2, List, GitBranch } from "lucide-react"
 
-// ─── View toggle stored in localStorage ───────────────────────────────────────
+// ─── Tab key stored in localStorage ───────────────────────────────────────────
 
-const VIEW_STORAGE_KEY = "cold-calls-view-preference"
-type ViewMode = "cockpit" | "classic"
+const TAB_STORAGE_KEY = "cold-calls-active-tab"
+type ActiveTab = "cockpit" | "stats" | "leads" | "pipeline"
 
-function useViewMode(): [ViewMode, (v: ViewMode) => void] {
-  const [view, setView] = useState<ViewMode>("cockpit")
+function useActiveTab(): [ActiveTab, (t: ActiveTab) => void] {
+  const [tab, setTab] = useState<ActiveTab>("cockpit")
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(VIEW_STORAGE_KEY)
-      if (stored === "classic" || stored === "cockpit") {
-        setView(stored)
+      const stored = localStorage.getItem(TAB_STORAGE_KEY)
+      if (
+        stored === "cockpit" ||
+        stored === "stats" ||
+        stored === "leads" ||
+        stored === "pipeline"
+      ) {
+        setTab(stored as ActiveTab)
       }
     } catch {}
   }, [])
 
-  const setAndSave = (v: ViewMode) => {
-    setView(v)
+  const setAndSave = (t: ActiveTab) => {
+    setTab(t)
     try {
-      localStorage.setItem(VIEW_STORAGE_KEY, v)
+      localStorage.setItem(TAB_STORAGE_KEY, t)
     } catch {}
   }
 
-  return [view, setAndSave]
+  return [tab, setAndSave]
 }
 
-// ─── View toggle bar ───────────────────────────────────────────────────────────
+// ─── Lazy tab content components ───────────────────────────────────────────────
 
-function ViewToggle({
-  view,
-  onChange,
-}: {
-  view: ViewMode
-  onChange: (v: ViewMode) => void
-}) {
+const CallCockpit = lazy(() =>
+  import("@/components/portal/cold-calls/call-cockpit").then((m) => ({
+    default: m.CallCockpit,
+  }))
+)
+
+const DialerStats = lazy(() =>
+  import("@/components/portal/cold-calls/dialer-stats").then((m) => ({
+    default: m.DialerStats,
+  }))
+)
+
+const DialerLeadsTable = lazy(() =>
+  import("@/components/portal/cold-calls/dialer-leads-table").then((m) => ({
+    default: m.DialerLeadsTable,
+  }))
+)
+
+const CallbackPipeline = lazy(() =>
+  import("@/components/portal/cold-calls/callback-pipeline").then((m) => ({
+    default: m.CallbackPipeline,
+  }))
+)
+
+// ─── Tab skeleton fallbacks ────────────────────────────────────────────────────
+
+function TabFallback() {
   return (
-    <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-sm">
-      <span className="mr-1 text-xs font-medium text-muted-foreground">View:</span>
-
-      <Button
-        variant={view === "cockpit" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => onChange("cockpit")}
-        className={
-          view === "cockpit"
-            ? "gap-1.5 bg-orange-500 text-white hover:bg-orange-600"
-            : "gap-1.5 text-muted-foreground hover:text-foreground"
-        }
-      >
-        <Gauge className="size-3.5" />
-        Cockpit
-        {view === "cockpit" && (
-          <Badge className="ml-0.5 bg-white/20 px-1 py-0 text-[9px] font-bold text-white">
-            NEW
-          </Badge>
-        )}
-      </Button>
-
-      <Button
-        variant={view === "classic" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => onChange("classic")}
-        className={
-          view === "classic"
-            ? "gap-1.5"
-            : "gap-1.5 text-muted-foreground hover:text-foreground"
-        }
-      >
-        <LayoutDashboard className="size-3.5" />
-        Classic
-      </Button>
+    <div className="space-y-4 pt-2">
+      <div className="grid grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-56 rounded-xl" />
+      <div className="grid grid-cols-2 gap-3">
+        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
     </div>
   )
 }
@@ -90,7 +88,7 @@ function ViewToggle({
 
 function ColdCallsContent() {
   const { user } = use(PortalAuthContext)
-  const [view, setView] = useViewMode()
+  const [activeTab, setActiveTab] = useActiveTab()
 
   if (!user) return null
   if (user.role !== "admin") {
@@ -98,20 +96,88 @@ function ColdCallsContent() {
   }
 
   return (
-    <div className="space-y-3">
-      {/* Toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Cold Calls</h1>
-          <p className="text-sm text-muted-foreground">
-            {view === "cockpit" ? "Cockpit — command center view" : "Classic tracker view"}
-          </p>
-        </div>
-        <ViewToggle view={view} onChange={setView} />
+    <div className="space-y-4">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-bold">Cold Calls</h1>
+        <p className="text-sm text-muted-foreground">
+          {activeTab === "cockpit" && "Command center — dial, track, and close"}
+          {activeTab === "stats" && "Performance metrics and trend analysis"}
+          {activeTab === "leads" && "Browse and manage your lead database"}
+          {activeTab === "pipeline" && "Scheduled callbacks and follow-ups"}
+        </p>
       </div>
 
-      {/* Render the selected view */}
-      {view === "cockpit" ? <CallCockpit /> : <ColdCallTracker />}
+      {/* Tab bar */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as ActiveTab)}
+      >
+        <TabsList className="h-auto gap-1 rounded-xl border bg-card px-2 py-2 shadow-sm">
+          <TabsTrigger
+            value="cockpit"
+            className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-none"
+          >
+            <Gauge className="size-3.5" />
+            Cockpit
+          </TabsTrigger>
+          <TabsTrigger value="stats" className="gap-1.5">
+            <BarChart2 className="size-3.5" />
+            Stats
+          </TabsTrigger>
+          <TabsTrigger value="leads" className="gap-1.5">
+            <List className="size-3.5" />
+            Leads
+          </TabsTrigger>
+          <TabsTrigger value="pipeline" className="gap-1.5">
+            <GitBranch className="size-3.5" />
+            Pipeline
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Cockpit tab — preserves existing CallCockpit component */}
+        <TabsContent value="cockpit">
+          <Suspense fallback={<CockpitFallback />}>
+            <CallCockpit />
+          </Suspense>
+        </TabsContent>
+
+        {/* Stats tab */}
+        <TabsContent value="stats">
+          <Suspense fallback={<TabFallback />}>
+            <DialerStats />
+          </Suspense>
+        </TabsContent>
+
+        {/* Leads tab */}
+        <TabsContent value="leads">
+          <Suspense fallback={<TabFallback />}>
+            <DialerLeadsTable />
+          </Suspense>
+        </TabsContent>
+
+        {/* Pipeline tab */}
+        <TabsContent value="pipeline">
+          <Suspense fallback={<TabFallback />}>
+            <CallbackPipeline />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+// ─── Cockpit-specific fallback (matches existing skeleton shape) ───────────────
+
+function CockpitFallback() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-16 w-full rounded-xl" />
+      <div className="grid grid-cols-2 gap-3">
+        <Skeleton className="h-[500px] rounded-xl" />
+        <Skeleton className="h-[500px] rounded-xl" />
+      </div>
+      <Skeleton className="h-40 w-full rounded-xl" />
     </div>
   )
 }
@@ -120,25 +186,24 @@ function ColdCallsContent() {
 
 export default function ColdCallsPage() {
   return (
-    <Suspense fallback={<ColdCallsSkeleton />}>
+    <Suspense fallback={<PageSkeleton />}>
       <ColdCallsContent />
     </Suspense>
   )
 }
 
-function ColdCallsSkeleton() {
+function PageSkeleton() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-9 w-64" />
       </div>
       <Skeleton className="h-16 w-full rounded-xl" />
       <div className="grid grid-cols-2 gap-3">
         <Skeleton className="h-[500px] rounded-xl" />
         <Skeleton className="h-[500px] rounded-xl" />
       </div>
-      <Skeleton className="h-40 w-full rounded-xl" />
     </div>
   )
 }
