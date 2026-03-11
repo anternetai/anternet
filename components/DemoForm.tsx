@@ -135,23 +135,42 @@ export function DemoForm({ onSubmitSuccess }: DemoFormProps) {
     setIsSubmitting(true)
 
     try {
-      // Save to Supabase
-      const { error } = await supabase.from("demo_leads").insert({
-        project_type: data.projectType,
-        home_age: data.homeAge,
-        timeline: data.timeline,
-        budget: data.budget,
-        payment_method: data.paymentMethod,
-        address: data.address,
-        name: data.name,
-        phone: data.phone,
-        email: data.email,
-        created_at: new Date().toISOString(),
-      })
-
-      if (error) {
-        console.error("Supabase error:", error)
-        // Continue anyway for demo purposes
+      // Save to Supabase + create Google Calendar event via API
+      try {
+        await fetch('/api/demo/book', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_type: data.projectType,
+            home_age: data.homeAge,
+            timeline: data.timeline,
+            budget: data.budget,
+            payment_method: data.paymentMethod,
+            address: data.address,
+            name: data.name,
+            phone: data.phone,
+            email: data.email,
+            projectType: data.projectType,
+            homeAge: data.homeAge,
+            paymentMethod: data.paymentMethod,
+          })
+        })
+      } catch (bookingError) {
+        console.error("Booking API error:", bookingError)
+        // Fallback: try direct Supabase insert
+        const { error } = await supabase.from("demo_leads").insert({
+          project_type: data.projectType,
+          home_age: data.homeAge,
+          timeline: data.timeline,
+          budget: data.budget,
+          payment_method: data.paymentMethod,
+          address: data.address,
+          name: data.name,
+          phone: data.phone,
+          email: data.email,
+          created_at: new Date().toISOString(),
+        })
+        if (error) console.error("Supabase fallback error:", error)
       }
 
       // Trigger VAPI call (will be wired up next)

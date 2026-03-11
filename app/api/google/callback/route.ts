@@ -1,36 +1,46 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getTokensFromCode } from "@/lib/google-calendar"
+import { exchangeCodeForTokens, setupDefaultCalendars } from "@/lib/google-calendar"
 
 export async function GET(request: NextRequest) {
-  const code = request.nextUrl.searchParams.get("code")
+  const { searchParams } = new URL(request.url)
+  const code = searchParams.get("code")
+  const error = searchParams.get("error")
+
+  // Handle OAuth denial
+  if (error) {
+    console.error("Google OAuth error:", error)
+    return NextResponse.redirect(
+      new URL("/portal/admin/calendar-auth?error=access_denied", request.url)
+    )
+  }
 
   if (!code) {
-    return NextResponse.json({ error: "No authorization code received" }, { status: 400 })
+    return NextResponse.redirect(
+      new URL("/portal/admin/calendar-auth?error=no_code", request.url)
+    )
   }
 
   try {
-    const tokens = await getTokensFromCode(code)
+    // Exchange code for tokens (saves refresh token to Supabase + .env)
+    await exchangeCodeForTokens(code)
 
-    // Display the refresh token so Anthony can add it to Vercel env vars
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head><title>Google Calendar Connected</title></head>
-        <body style="font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 20px;">
-          <h1 style="color: #3A6B4C;">Google Calendar Connected!</h1>
-          <p>Add this refresh token to your Vercel environment variables as <code>GOOGLE_REFRESH_TOKEN</code>:</p>
-          <pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; word-break: break-all; white-space: pre-wrap;">${tokens.refresh_token}</pre>
-          <p style="color: #666; font-size: 14px;">Once added, redeploy and calendar sync will be active.</p>
-          <p style="color: #666; font-size: 14px;">You can now close this page.</p>
-        </body>
-      </html>
-    `
+    // Setup default calendars (HomeField Hub + Dr. Squeegee)
+    try {
+      await setupDefaultCalendars()
+    } catch (calErr) {
+      // Non-fatal: calendar setup can be retried from the admin page
+      console.error("Failed to setup default calendars:", calErr)
+    }
 
-    return new NextResponse(html, {
-      headers: { "Content-Type": "text/html" },
-    })
+    // Redirect back to admin page with success
+    return NextResponse.redirect(
+      new URL("/portal/admin/calendar-auth?success=connected", request.url)
+    )
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error"
-    return NextResponse.json({ error: "Failed to exchange code", details: message }, { status: 500 })
+    console.error("Google OAuth callback error:", err)
+    const message = err instanceof Error ? err.message : "unknown_error"
+    return NextResponse.redirect(
+      new URL(`/portal/admin/calendar-auth?error=${encodeURIComponent(message)}`, request.url)
+    )
   }
 }

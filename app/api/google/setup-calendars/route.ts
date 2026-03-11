@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server"
-import { getAuthUrl } from "@/lib/google-calendar"
+import { setupDefaultCalendars, isCalendarConnected } from "@/lib/google-calendar"
 import { createClient } from "@/lib/supabase/server"
 
-export async function GET() {
+export async function POST() {
   try {
-    // Verify the requester is an admin
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -22,10 +21,15 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const authUrl = getAuthUrl()
-    return NextResponse.redirect(authUrl)
+    const connected = await isCalendarConnected()
+    if (!connected) {
+      return NextResponse.json({ error: "Google Calendar not connected" }, { status: 400 })
+    }
+
+    const result = await setupDefaultCalendars()
+    return NextResponse.json({ success: true, ...result })
   } catch (err) {
-    console.error("Google auth error:", err)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Setup calendars error:", err)
+    return NextResponse.json({ error: "Failed to setup calendars" }, { status: 500 })
   }
 }

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server"
-import { getAuthUrl } from "@/lib/google-calendar"
+import { isCalendarConnected, getConnectedAccountInfo } from "@/lib/google-calendar"
 import { createClient } from "@/lib/supabase/server"
 
 export async function GET() {
   try {
-    // Verify the requester is an admin
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -22,10 +21,16 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const authUrl = getAuthUrl()
-    return NextResponse.redirect(authUrl)
+    const connected = await isCalendarConnected()
+
+    if (!connected) {
+      return NextResponse.json({ connected: false, account: null })
+    }
+
+    const account = await getConnectedAccountInfo()
+    return NextResponse.json({ connected: true, account })
   } catch (err) {
-    console.error("Google auth error:", err)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Google status error:", err)
+    return NextResponse.json({ connected: false, account: null })
   }
 }

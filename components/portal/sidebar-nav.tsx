@@ -24,6 +24,7 @@ import {
   Compass,
   Crosshair,
   Rocket,
+  Calendar,
 } from "lucide-react"
 import {
   Sidebar,
@@ -81,6 +82,7 @@ const adminGroups: NavGroup[] = [
       { label: "Manage", href: "/portal/admin/manage", icon: ClipboardList },
       { label: "Prospects", href: "/portal/admin/prospects", icon: UserPlus },
       { label: "Control Panel", href: "/portal/admin/control", icon: Cpu },
+      { label: "Google Calendar", href: "/portal/admin/calendar-auth", icon: Calendar },
     ],
   },
   {
