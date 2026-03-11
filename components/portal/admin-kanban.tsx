@@ -38,14 +38,14 @@ function KanbanCard({
 }) {
   const router = useRouter()
   const days = getDaysInStage(client.pipeline_stage_changed_at)
-  const config = CLIENT_PIPELINE_CONFIG[client.pipeline_stage ?? "demo"]
+  const config = CLIENT_PIPELINE_CONFIG[client.pipeline_stage ?? "contacted"]
 
   return (
     <Card
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData("clientId", client.id)
-        e.dataTransfer.setData("fromStage", client.pipeline_stage ?? "demo")
+        e.dataTransfer.setData("fromStage", client.pipeline_stage ?? "contacted")
         e.dataTransfer.effectAllowed = "move"
       }}
       onClick={() => router.push(`/portal/admin/clients/${client.id}`)}
@@ -116,7 +116,7 @@ function KanbanColumn({
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, stage)}
       className={cn(
-        "flex min-h-[400px] w-[280px] shrink-0 flex-col rounded-lg bg-muted/50 p-3 transition-colors lg:w-full lg:min-w-0",
+        "flex min-h-[400px] w-[240px] shrink-0 flex-col rounded-lg bg-muted/50 p-2 transition-colors xl:w-full xl:min-w-0",
         dragOver === stage && "bg-primary/5 ring-2 ring-primary/20"
       )}
     >
@@ -160,7 +160,7 @@ export function AdminKanban({ clients, onStageChange }: AdminKanbanProps) {
   const clientsByStage = CLIENT_PIPELINE_STAGES.reduce(
     (acc, stage) => {
       acc[stage] = clients.filter(
-        (c) => (c.pipeline_stage ?? "demo") === stage
+        (c) => (c.pipeline_stage ?? "contacted") === stage
       )
       return acc
     },
@@ -189,7 +189,7 @@ export function AdminKanban({ clients, onStageChange }: AdminKanbanProps) {
   }
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-4 lg:grid lg:grid-cols-5 lg:overflow-x-visible">
+    <div className="flex gap-3 overflow-x-auto pb-4 xl:grid xl:grid-cols-8 xl:overflow-x-visible">
       {CLIENT_PIPELINE_STAGES.map((stage) => (
         <KanbanColumn
           key={stage}

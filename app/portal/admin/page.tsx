@@ -1,18 +1,15 @@
 "use client"
 
-import { use, Suspense, useState, useCallback } from "react"
+import { use, Suspense, useCallback } from "react"
 import { redirect } from "next/navigation"
 import useSWR from "swr"
-import { LayoutGrid, Columns3 } from "lucide-react"
+import { Columns3 } from "lucide-react"
 import { PortalAuthContext } from "@/components/portal/portal-auth-provider"
-import { AdminDashboard } from "@/components/portal/admin-dashboard"
 import { AdminKanban } from "@/components/portal/admin-kanban"
 import { AdminStatsBar } from "@/components/portal/admin-stats-bar"
 import { UpcomingSchedule } from "@/components/portal/upcoming-schedule"
 import { InviteClientDialog } from "@/components/portal/invite-client-dialog"
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { cn } from "@/lib/utils"
 import type { AdminClientMetrics, ClientPipelineStage } from "@/lib/portal/types"
 
 async function fetchAdminClients() {
@@ -21,8 +18,6 @@ async function fetchAdminClients() {
   const data = await res.json()
   return data.clients as AdminClientMetrics[]
 }
-
-type ViewMode = "grid" | "kanban"
 
 function AdminContent() {
   const { user } = use(PortalAuthContext)
@@ -34,8 +29,6 @@ function AdminContent() {
       shouldRetryOnError: false,
     }
   )
-  const [view, setView] = useState<ViewMode>("grid")
-
   const handleStageChange = useCallback(
     async (clientId: string, newStage: ClientPipelineStage) => {
       // Optimistic update
@@ -88,74 +81,36 @@ function AdminContent() {
       {/* Stats bar */}
       <AdminStatsBar clients={clients} isLoading={isLoading} />
 
-      {/* Header row: title + view toggle + invite */}
+      {/* Header row */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold">Client Pipeline</h1>
           <p className="text-sm text-muted-foreground">
             All clients at a glance
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex items-center rounded-lg border bg-muted p-0.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setView("grid")}
-              className={cn(
-                "h-8 gap-1.5 rounded-md px-3 text-xs",
-                view === "grid"
-                  ? "bg-background shadow-sm hover:bg-background"
-                  : "hover:bg-transparent"
-              )}
-            >
-              <LayoutGrid className="size-3.5" />
-              Grid
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setView("kanban")}
-              className={cn(
-                "h-8 gap-1.5 rounded-md px-3 text-xs",
-                view === "kanban"
-                  ? "bg-background shadow-sm hover:bg-background"
-                  : "hover:bg-transparent"
-              )}
-            >
-              <Columns3 className="size-3.5" />
-              Kanban
-            </Button>
-          </div>
-
           {clients && <InviteClientDialog clients={clients} />}
         </div>
       </div>
 
-      {/* Main content: grid or kanban */}
-      {view === "grid" ? (
-        <AdminDashboard />
+      {/* Kanban board */}
+      {isLoading ? (
+        <div className="grid gap-3 lg:grid-cols-8">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-[400px]" />
+          ))}
+        </div>
+      ) : clients?.length ? (
+        <AdminKanban
+          clients={clients}
+          onStageChange={handleStageChange}
+        />
       ) : (
-        <>
-          {isLoading ? (
-            <div className="grid gap-3 lg:grid-cols-5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-[400px]" />
-              ))}
-            </div>
-          ) : clients?.length ? (
-            <AdminKanban
-              clients={clients}
-              onStageChange={handleStageChange}
-            />
-          ) : (
-            <div className="flex h-64 flex-col items-center justify-center gap-2 text-muted-foreground">
-              <Columns3 className="size-8" />
-              <p>No clients yet.</p>
-            </div>
-          )}
-        </>
+        <div className="flex h-64 flex-col items-center justify-center gap-2 text-muted-foreground">
+          <Columns3 className="size-8" />
+          <p>No clients yet.</p>
+        </div>
       )}
 
       {/* Upcoming schedule */}

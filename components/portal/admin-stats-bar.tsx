@@ -18,7 +18,7 @@ interface AdminStatsBarProps {
 function getPipelineSummary(clients: AdminClientMetrics[]): string {
   const counts = CLIENT_PIPELINE_STAGES.map((stage) => {
     const count = clients.filter(
-      (c) => (c.pipeline_stage ?? "demo") === stage
+      (c) => (c.pipeline_stage ?? "contacted") === stage
     ).length
     return { stage, count }
   }).filter((s) => s.count > 0)

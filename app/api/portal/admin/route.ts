@@ -27,6 +27,7 @@ export async function GET() {
   const { data: clients, error } = await supabase
     .from("admin_client_metrics")
     .select("*")
+    .neq("role", "admin")
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -36,6 +37,7 @@ export async function GET() {
       .from("agency_clients")
       .select("*")
       .is("deleted_at", null)
+      .neq("role", "admin")
       .order("created_at", { ascending: false })
 
     return NextResponse.json({

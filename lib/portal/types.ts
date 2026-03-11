@@ -124,7 +124,7 @@ export interface AdminClientMetrics extends Client {
 }
 
 // CRM Pipeline stages for client lifecycle
-export type ClientPipelineStage = "demo" | "onboarding" | "setup" | "launch" | "active"
+export type ClientPipelineStage = "contacted" | "interested" | "demo_scheduled" | "signed" | "onboarding" | "setup" | "launch" | "active"
 
 export interface ClientDetail extends Client {
   pipeline_stage: ClientPipelineStage

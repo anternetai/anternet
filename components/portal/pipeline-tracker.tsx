@@ -24,7 +24,7 @@ interface PipelineTrackerProps {
 
 // Map stages to their date fields in ClientDetail
 const STAGE_DATE_MAP: Partial<Record<ClientPipelineStage, keyof ClientDetail>> = {
-  demo: "demo_call_at",
+  demo_scheduled: "demo_call_at",
   onboarding: "onboarding_call_at",
   launch: "launch_call_at",
 }

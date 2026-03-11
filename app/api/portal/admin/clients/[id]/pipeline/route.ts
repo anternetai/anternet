@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-const VALID_STAGES = ["demo", "onboarding", "setup", "launch", "active"] as const
+const VALID_STAGES = ["contacted", "interested", "demo_scheduled", "signed", "onboarding", "setup", "launch", "active"] as const
 type PipelineStage = (typeof VALID_STAGES)[number]
 
 const PIPELINE_STAGE_TASKS: Record<PipelineStage, string[]> = {
-  demo: ["Schedule demo call", "Send intro email"],
+  contacted: ["Follow up call", "Research business"],
+  interested: ["Schedule demo call", "Send intro email"],
+  demo_scheduled: ["Confirm demo time", "Prepare demo deck"],
+  signed: ["Collect deposit", "Send service agreement"],
   onboarding: [
     "Schedule onboarding call",
     "Get calendar access",
@@ -28,7 +31,7 @@ const PIPELINE_STAGE_TASKS: Record<PipelineStage, string[]> = {
 
 // Map: when advancing TO a stage, mark the PREVIOUS stage's call timestamp
 const STAGE_CALL_FIELDS: Partial<Record<PipelineStage, string>> = {
-  onboarding: "demo_call_at",
+  signed: "demo_call_at",
   launch: "launch_call_at",
 }
 
@@ -81,7 +84,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
     }
 
-    const oldStage = currentClient.pipeline_stage ?? "demo"
+    const oldStage = currentClient.pipeline_stage ?? "contacted"
     const now = new Date().toISOString()
 
     // Build update payload

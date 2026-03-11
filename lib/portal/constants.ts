@@ -44,9 +44,12 @@ export const PIPELINE_STAGES: LeadStatus[] = [
   "closed_lost",
 ]
 
-// Client lifecycle pipeline (admin CRM)
+// Client lifecycle pipeline (admin CRM) — full funnel from cold call to active
 export const CLIENT_PIPELINE_STAGES: ClientPipelineStage[] = [
-  "demo",
+  "contacted",
+  "interested",
+  "demo_scheduled",
+  "signed",
   "onboarding",
   "setup",
   "launch",
@@ -57,9 +60,24 @@ export const CLIENT_PIPELINE_CONFIG: Record<
   ClientPipelineStage,
   { label: string; color: string; nextAction: string }
 > = {
-  demo: {
-    label: "Demo Call",
+  contacted: {
+    label: "Contacted",
+    color: "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300",
+    nextAction: "Follow up call",
+  },
+  interested: {
+    label: "Interested",
+    color: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300",
+    nextAction: "Schedule demo call",
+  },
+  demo_scheduled: {
+    label: "Demo Scheduled",
     color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+    nextAction: "Complete demo call",
+  },
+  signed: {
+    label: "Signed",
+    color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
     nextAction: "Schedule onboarding call",
   },
   onboarding: {
@@ -86,7 +104,10 @@ export const CLIENT_PIPELINE_CONFIG: Record<
 
 // Default tasks auto-created for each pipeline stage
 export const PIPELINE_STAGE_TASKS: Record<ClientPipelineStage, string[]> = {
-  demo: ["Schedule demo call", "Send intro email"],
+  contacted: ["Follow up call", "Research business"],
+  interested: ["Schedule demo call", "Send intro email"],
+  demo_scheduled: ["Confirm demo time", "Prepare demo deck"],
+  signed: ["Collect deposit", "Send service agreement"],
   onboarding: [
     "Schedule onboarding call",
     "Get calendar access",
