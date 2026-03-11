@@ -20,7 +20,7 @@ interface LeadRecording {
 }
 
 // Allowed fields for PATCH updates
-const PATCHABLE_FIELDS = ["status", "not_interested", "next_call_at", "notes", "wrong_number"] as const
+const PATCHABLE_FIELDS = ["status", "not_interested", "next_call_at", "notes", "wrong_number", "demo_booked", "demo_date"] as const
 
 // PATCH /api/portal/dialer/leads/[id] - update lead fields (status, callback, etc.)
 export async function PATCH(
@@ -39,6 +39,41 @@ export async function PATCH(
   }
 
   const body = await req.json()
+  const admin = getAdmin()
+
+  // Handle note append (special case)
+  if (body.appendNote) {
+    const { data: lead } = await admin
+      .from("dialer_leads")
+      .select("notes")
+      .eq("id", id)
+      .single()
+
+    const timestamp = new Date().toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+
+    const existingNotes = lead?.notes ?? ""
+    const newNotes = existingNotes
+      ? `${existingNotes}\n[${timestamp} ET] ${body.appendNote}`
+      : `[${timestamp} ET] ${body.appendNote}`
+
+    const { data, error } = await admin
+      .from("dialer_leads")
+      .update({ notes: newNotes, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ lead: data })
+  }
 
   // Only allow known fields through
   const updates: Record<string, unknown> = {}
@@ -54,7 +89,6 @@ export async function PATCH(
 
   updates.updated_at = new Date().toISOString()
 
-  const admin = getAdmin()
   const { data, error } = await admin
     .from("dialer_leads")
     .update(updates)
@@ -88,11 +122,12 @@ export async function GET(
 
   const admin = getAdmin()
 
-  // Fetch lead, call history, and recordings in parallel
+  // Fetch lead, call history, recordings, and telnyx logs in parallel
   const [
     { data: lead, error: leadError },
     { data: callHistory, error: historyError },
     { data: recordings, error: recordingsError },
+    { data: telnyxLogs },
   ] = await Promise.all([
     admin.from("dialer_leads").select("*").eq("id", id).single(),
     admin
@@ -103,6 +138,11 @@ export async function GET(
     admin
       .from("call_recordings")
       .select("id, created_at, duration_seconds, ai_summary, ai_disposition, raw_transcript")
+      .eq("lead_id", id)
+      .order("created_at", { ascending: false }),
+    admin
+      .from("telnyx_call_logs")
+      .select("id, created_at, duration, status, direction, from_number, to_number, ai_summary, transcription, notes")
       .eq("lead_id", id)
       .order("created_at", { ascending: false }),
   ])
@@ -123,5 +163,6 @@ export async function GET(
     lead: lead as DialerLead,
     callHistory: (callHistory || []) as DialerCallHistory[],
     recordings: (recordings || []) as LeadRecording[],
+    telnyxLogs: (telnyxLogs || []),
   })
 }

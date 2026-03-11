@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useRef, useCallback } from "react"
 import useSWR from "swr"
 import {
   Phone,
@@ -7,7 +8,6 @@ import {
   Globe,
   MapPin,
   Clock,
-  Hash,
   ExternalLink,
   Gauge,
   XCircle,
@@ -15,6 +15,14 @@ import {
   Loader2,
   AlertCircle,
   Building2,
+  FileText,
+  Sparkles,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Send,
+  CalendarX,
+  PhoneOff,
 } from "lucide-react"
 import {
   Sheet,
@@ -27,6 +35,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import type { DialerLead, DialerOutcome, DialerStatus, DialerCallHistory } from "@/lib/dialer/types"
 
@@ -75,11 +84,39 @@ function formatDate(dateStr: string) {
   })
 }
 
+function formatDateET(dateStr: string) {
+  return new Date(dateStr).toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }) + " ET"
+}
+
 function formatDuration(seconds: number | null | undefined) {
   if (!seconds) return null
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${String(s).padStart(2, "0")}`
+}
+
+// ─── Telnyx call log type ──────────────────────────────────────────────────────
+
+interface TelnyxCallLog {
+  id: string
+  created_at: string
+  duration: number | null
+  status: string | null
+  direction: string | null
+  from_number: string | null
+  to_number: string | null
+  ai_summary: string | null
+  transcription: string | null
+  notes: string | null
 }
 
 // ─── Extended lead detail type ─────────────────────────────────────────────────
@@ -94,9 +131,10 @@ interface LeadRecording {
 }
 
 interface LeadDetailData {
-  lead: DialerLead
+  lead: DialerLead & { last_transcript?: string | null; last_ai_summary?: string | null }
   callHistory: (DialerCallHistory & { duration_seconds?: number; ai_summary?: string })[]
   recordings: LeadRecording[]
+  telnyxLogs: TelnyxCallLog[]
 }
 
 // ─── Info row ──────────────────────────────────────────────────────────────────
@@ -132,6 +170,78 @@ function InfoRow({
           <p className="text-sm font-medium truncate">{value}</p>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Collapsible section ───────────────────────────────────────────────────────
+
+function CollapsibleSection({
+  title,
+  icon: Icon,
+  children,
+  defaultOpen = false,
+  badge,
+}: {
+  title: string
+  icon: typeof FileText
+  children: React.ReactNode
+  defaultOpen?: boolean
+  badge?: string
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 text-left mb-2 hover:opacity-80 transition-opacity"
+      >
+        <Icon className="size-3.5 text-muted-foreground" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+          {title}
+        </span>
+        {badge && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 mr-1">
+            {badge}
+          </Badge>
+        )}
+        {open ? (
+          <ChevronUp className="size-3.5 text-muted-foreground/60" />
+        ) : (
+          <ChevronDown className="size-3.5 text-muted-foreground/60" />
+        )}
+      </button>
+      {open && <div className="animate-in slide-in-from-top-1 duration-150">{children}</div>}
+    </div>
+  )
+}
+
+// ─── Notes renderer ────────────────────────────────────────────────────────────
+
+function NotesRenderer({ notes }: { notes: string }) {
+  // Parse timestamp-prefixed lines like "[Mar 11, 2026, 10:30 AM ET] note text"
+  const lines = notes.split("\n")
+  return (
+    <div className="space-y-2">
+      {lines.map((line, i) => {
+        const tsMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/)
+        if (tsMatch) {
+          return (
+            <div key={i} className="text-sm">
+              <span className="text-[10px] font-mono text-muted-foreground mr-1.5">
+                [{tsMatch[1]}]
+              </span>
+              <span>{tsMatch[2]}</span>
+            </div>
+          )
+        }
+        if (!line.trim()) return null
+        return (
+          <p key={i} className="text-sm text-muted-foreground leading-relaxed">
+            {line}
+          </p>
+        )
+      })}
     </div>
   )
 }
@@ -183,6 +293,112 @@ function CallHistoryCard({ call }: { call: DialerCallHistory & { duration_second
   )
 }
 
+// ─── Telnyx call log card ──────────────────────────────────────────────────────
+
+function TelnyxLogCard({ log }: { log: TelnyxCallLog }) {
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+            {log.status ?? "unknown"}
+          </Badge>
+          {log.direction && (
+            <span className="text-[10px] text-muted-foreground capitalize">{log.direction}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          {log.duration != null && (
+            <span>{formatDuration(log.duration)}</span>
+          )}
+          <span>{formatDate(log.created_at)}</span>
+        </div>
+      </div>
+
+      {log.ai_summary && (
+        <div className="rounded-md bg-orange-500/10 border border-orange-500/20 px-2.5 py-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">
+            AI Summary
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{log.ai_summary}</p>
+        </div>
+      )}
+
+      {log.transcription && (
+        <CollapsibleSection title="Transcript" icon={MessageSquare}>
+          <pre className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans max-h-40 overflow-y-auto rounded bg-muted/40 p-2">
+            {log.transcription}
+          </pre>
+        </CollapsibleSection>
+      )}
+    </div>
+  )
+}
+
+// ─── Add Note box ──────────────────────────────────────────────────────────────
+
+function AddNoteBox({
+  leadId,
+  onSaved,
+}: {
+  leadId: string
+  onSaved: (notes: string) => void
+}) {
+  const [note, setNote] = useState("")
+  const [saving, setSaving] = useState(false)
+  const textRef = useRef<HTMLTextAreaElement>(null)
+
+  async function handleSave() {
+    if (!note.trim()) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/portal/dialer/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appendNote: note.trim() }),
+      })
+      const data = await res.json()
+      if (data.lead?.notes !== undefined) {
+        onSaved(data.lead.notes)
+        setNote("")
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        ref={textRef}
+        placeholder="Add a note…"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={2}
+        className="text-sm resize-none"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault()
+            handleSave()
+          }
+        }}
+      />
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-muted-foreground">⌘+Enter to save</p>
+        <Button
+          size="sm"
+          disabled={!note.trim() || saving}
+          onClick={handleSave}
+          className="gap-1.5 h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+        >
+          <Send className="size-3" />
+          {saving ? "Saving…" : "Save Note"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Sheet content ─────────────────────────────────────────────────────────────
 
 interface LeadDetailSheetProps {
@@ -203,8 +419,30 @@ export function LeadDetailSheet({
     fetcher
   )
 
+  const [localNotes, setLocalNotes] = useState<string | null>(null)
+
   const lead = data?.lead
   const callHistory = data?.callHistory ?? []
+  const telnyxLogs = data?.telnyxLogs ?? []
+
+  // Use local notes if we've just added one (optimistic)
+  const displayNotes = localNotes !== null ? localNotes : (lead?.notes ?? null)
+  const displayAiSummary = lead?.last_ai_summary ?? null
+  const displayTranscript = lead?.last_transcript ?? null
+
+  const handleNotesSaved = useCallback((newNotes: string) => {
+    setLocalNotes(newNotes)
+  }, [])
+
+  async function handleMarkNoShow() {
+    if (!leadId) return
+    await fetch(`/api/portal/dialer/leads/${leadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ demo_booked: false, status: "in_progress" }),
+    })
+    mutate()
+  }
 
   async function handleMarkNotInterested() {
     if (!leadId) return
@@ -217,7 +455,6 @@ export function LeadDetailSheet({
   }
 
   async function handleScheduleCallback() {
-    // Opens callback scheduling — for now just mark status=callback
     if (!leadId) return
     const callbackAt = prompt("Enter callback date/time (e.g. 2026-03-15 10:00 AM):")
     if (!callbackAt) return
@@ -229,8 +466,14 @@ export function LeadDetailSheet({
     mutate()
   }
 
+  // Reset local notes when sheet closes/reopens
+  const handleOpenChange = (v: boolean) => {
+    if (!v) setLocalNotes(null)
+    onOpenChange(v)
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
         className="w-full sm:max-w-lg flex flex-col gap-0 p-0"
@@ -273,6 +516,14 @@ export function LeadDetailSheet({
                     {lead.demo_booked && (
                       <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0 border border-emerald-500/30">
                         Demo Booked
+                      </Badge>
+                    )}
+                    {lead.last_outcome && (
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px] px-2 py-0 border", outcomeBadgeClass(lead.last_outcome))}
+                      >
+                        {formatOutcomeLabel(lead.last_outcome)}
                       </Badge>
                     )}
                   </div>
@@ -324,44 +575,99 @@ export function LeadDetailSheet({
                         : undefined
                     }
                   />
+                  {lead.demo_booked && lead.demo_date && (
+                    <InfoRow
+                      icon={CalendarClock}
+                      label="Demo Date (ET)"
+                      value={formatDateET(lead.demo_date)}
+                    />
+                  )}
                 </div>
               </div>
 
+              <Separator />
+
               {/* Notes */}
-              {lead.notes && (
+              <CollapsibleSection title="Notes" icon={FileText} defaultOpen={true}>
+                {displayNotes ? (
+                  <div className="mb-3 rounded-lg bg-muted/30 border p-3">
+                    <NotesRenderer notes={displayNotes} />
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mb-3">No notes yet.</p>
+                )}
+                <AddNoteBox leadId={lead.id} onSaved={handleNotesSaved} />
+              </CollapsibleSection>
+
+              {/* AI Summary */}
+              {displayAiSummary && (
                 <>
                   <Separator />
-                  <div>
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Notes
-                    </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {lead.notes}
-                    </p>
-                  </div>
+                  <CollapsibleSection title="AI Summary" icon={Sparkles} defaultOpen={true}>
+                    <div className="rounded-lg bg-orange-500/10 border border-orange-500/20 p-3">
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                        {displayAiSummary}
+                      </p>
+                    </div>
+                  </CollapsibleSection>
                 </>
               )}
 
-              {/* Call history */}
-              <Separator />
-              <div>
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Call History ({callHistory.length})
-                </p>
-                {callHistory.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No calls logged yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {callHistory.map((call) => (
-                      <CallHistoryCard key={call.id} call={call} />
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Full Transcript */}
+              {displayTranscript && (
+                <>
+                  <Separator />
+                  <CollapsibleSection title="Last Transcript" icon={MessageSquare} defaultOpen={false}>
+                    <div className="rounded-lg bg-muted/30 border p-3 max-h-64 overflow-y-auto">
+                      <pre className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans">
+                        {displayTranscript}
+                      </pre>
+                    </div>
+                  </CollapsibleSection>
+                </>
+              )}
+
+              {/* Telnyx call logs */}
+              {telnyxLogs.length > 0 && (
+                <>
+                  <Separator />
+                  <CollapsibleSection
+                    title="Telnyx Call Logs"
+                    icon={Phone}
+                    defaultOpen={false}
+                    badge={String(telnyxLogs.length)}
+                  >
+                    <div className="space-y-2">
+                      {telnyxLogs.map((log) => (
+                        <TelnyxLogCard key={log.id} log={log} />
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                </>
+              )}
+
+              {/* Dialer call history */}
+              {callHistory.length > 0 && (
+                <>
+                  <Separator />
+                  <CollapsibleSection
+                    title={`Dialer Call History`}
+                    icon={Phone}
+                    defaultOpen={false}
+                    badge={String(callHistory.length)}
+                  >
+                    <div className="space-y-2">
+                      {callHistory.map((call) => (
+                        <CallHistoryCard key={call.id} call={call} />
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                </>
+              )}
             </div>
 
             {/* Footer actions */}
-            <SheetFooter className="border-t px-5 py-3 flex-row gap-2">
+            <SheetFooter className="border-t px-5 py-3 flex-row flex-wrap gap-2">
               <Button
                 size="sm"
                 className="flex-1 gap-1.5 bg-orange-500 text-white hover:bg-orange-600"
@@ -373,14 +679,25 @@ export function LeadDetailSheet({
                 <Gauge className="size-3.5" />
                 Call Now
               </Button>
+              {lead.demo_booked && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-amber-400 hover:text-amber-300 border-amber-500/30 hover:bg-amber-500/10"
+                  onClick={handleMarkNoShow}
+                >
+                  <CalendarX className="size-3.5" />
+                  No-Show
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
-                className="flex-1 gap-1.5"
+                className="gap-1.5"
                 onClick={handleScheduleCallback}
               >
                 <CalendarClock className="size-3.5" />
-                Schedule Callback
+                Reschedule
               </Button>
               <Button
                 size="sm"
@@ -388,7 +705,7 @@ export function LeadDetailSheet({
                 className="gap-1.5 text-red-400 hover:text-red-300 border-red-500/30 hover:bg-red-500/10"
                 onClick={handleMarkNotInterested}
               >
-                <XCircle className="size-3.5" />
+                <PhoneOff className="size-3.5" />
                 Not Interested
               </Button>
             </SheetFooter>

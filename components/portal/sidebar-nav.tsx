@@ -25,6 +25,7 @@ import {
   Crosshair,
   Rocket,
   Calendar,
+  ListChecks,
 } from "lucide-react"
 import {
   Sidebar,
@@ -66,6 +67,7 @@ type NavGroup = {
 // Client/team member nav — always visible
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
+  { label: "Daily Tasks", href: "/portal/tasks", icon: ListChecks },
   { label: "Leads", href: "/portal/leads", icon: Users },
   { label: "Conversations", href: "/portal/conversations", icon: MessageSquare },
   { label: "Appointments", href: "/portal/appointments", icon: CalendarCheck },

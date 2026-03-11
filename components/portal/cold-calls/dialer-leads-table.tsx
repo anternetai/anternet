@@ -208,8 +208,24 @@ export function DialerLeadsTable() {
     setPage(1)
   }
 
-  function openLeadSheet(id: string) {
-    setSelectedLeadId(id)
+  // Only open slide-over for leads with meaningful outcome or demo booked
+  const SLIDE_OVER_OUTCOMES = new Set([
+    "demo_booked",
+    "conversation",
+    "owner_pitched",
+    "callback",
+  ])
+
+  function isSlideOverEligible(lead: DialerLead): boolean {
+    return (
+      lead.demo_booked === true ||
+      (lead.last_outcome != null && SLIDE_OVER_OUTCOMES.has(lead.last_outcome))
+    )
+  }
+
+  function openLeadSheet(lead: DialerLead) {
+    if (!isSlideOverEligible(lead)) return
+    setSelectedLeadId(lead.id)
     setSheetOpen(true)
   }
 
@@ -421,11 +437,21 @@ export function DialerLeadsTable() {
                   leads.map((lead) => (
                     <TableRow
                       key={lead.id}
-                      className="cursor-pointer hover:bg-muted/40 transition-colors"
-                      onClick={() => openLeadSheet(lead.id)}
+                      className={cn(
+                        "transition-colors",
+                        isSlideOverEligible(lead)
+                          ? "cursor-pointer hover:bg-muted/40"
+                          : "cursor-default hover:bg-muted/20"
+                      )}
+                      onClick={() => openLeadSheet(lead)}
                     >
-                      <TableCell className="font-medium text-sm max-w-[220px] truncate">
-                        {lead.business_name ?? "—"}
+                      <TableCell className="font-medium text-sm max-w-[220px]">
+                        <div className="flex items-center gap-1.5 truncate">
+                          {isSlideOverEligible(lead) && (
+                            <span className="inline-block size-1.5 rounded-full bg-emerald-400 shrink-0" title="Has notes / demo" />
+                          )}
+                          <span className="truncate">{lead.business_name ?? "—"}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[140px] truncate">
                         {lead.owner_name ?? lead.first_name ?? "—"}
