@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useCallback } from "react"
 import useSWR from "swr"
 import {
   Phone,
@@ -9,9 +9,6 @@ import {
   MapPin,
   Clock,
   ExternalLink,
-  Gauge,
-  XCircle,
-  CalendarClock,
   Loader2,
   AlertCircle,
   Building2,
@@ -22,7 +19,10 @@ import {
   ChevronUp,
   Send,
   CalendarX,
-  PhoneOff,
+  PhoneForwarded,
+  Ban,
+  Gauge,
+  CalendarClock,
 } from "lucide-react"
 import {
   Sheet,
@@ -43,70 +43,61 @@ import type { DialerLead, DialerOutcome, DialerStatus, DialerCallHistory } from 
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-// ─── Badge helpers ─────────────────────────────────────────────────────────────
+// ─── Badge utils ───────────────────────────────────────────────────────────────
 
 export function statusBadgeClass(status: DialerStatus | string): string {
-  switch (status) {
-    case "queued":      return "bg-blue-500/15 text-blue-400 border-blue-500/30"
-    case "in_progress": return "bg-orange-500/15 text-orange-400 border-orange-500/30"
-    case "callback":    return "bg-amber-500/15 text-amber-400 border-amber-500/30"
-    case "completed":   return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-    case "archived":    return "bg-muted text-muted-foreground border-border"
-    default:            return "bg-muted text-muted-foreground border-border"
+  const m: Record<string, string> = {
+    queued:      "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    in_progress: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    callback:    "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    completed:   "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    archived:    "bg-muted text-muted-foreground border-border",
   }
+  return m[status] ?? "bg-muted text-muted-foreground border-border"
 }
 
 export function outcomeBadgeClass(outcome: DialerOutcome | string): string {
-  switch (outcome) {
-    case "no_answer":      return "bg-muted text-muted-foreground border-border"
-    case "voicemail":      return "bg-slate-500/15 text-slate-400 border-slate-500/30"
-    case "gatekeeper":     return "bg-purple-500/15 text-purple-400 border-purple-500/30"
-    case "conversation":   return "bg-blue-500/15 text-blue-400 border-blue-500/30"
-    case "demo_booked":    return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-    case "not_interested": return "bg-red-500/15 text-red-400 border-red-500/30"
-    case "wrong_number":   return "bg-orange-500/15 text-orange-400 border-orange-500/30"
-    case "callback":       return "bg-amber-500/15 text-amber-400 border-amber-500/30"
-    default:               return "bg-muted text-muted-foreground border-border"
+  const m: Record<string, string> = {
+    no_answer:      "bg-muted text-muted-foreground border-border",
+    voicemail:      "bg-slate-500/10 text-slate-400 border-slate-500/20",
+    gatekeeper:     "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    conversation:   "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    demo_booked:    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    not_interested: "bg-red-500/10 text-red-400 border-red-500/20",
+    wrong_number:   "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    callback:       "bg-amber-500/10 text-amber-400 border-amber-500/20",
   }
+  return m[outcome] ?? "bg-muted text-muted-foreground border-border"
 }
 
-function formatOutcomeLabel(outcome: string) {
-  return outcome.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+function fmtOutcome(o: string) {
+  return o.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+function fmtDate(s: string) {
+  return new Date(s).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit",
   })
 }
 
-function formatDateET(dateStr: string) {
-  return new Date(dateStr).toLocaleString("en-US", {
+function fmtDateET(s: string) {
+  return new Date(s).toLocaleString("en-US", {
     timeZone: "America/New_York",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
+    weekday: "short", month: "short", day: "numeric",
+    year: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
   }) + " ET"
 }
 
-function formatDuration(seconds: number | null | undefined) {
-  if (!seconds) return null
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
+function fmtDuration(sec: number | null | undefined) {
+  if (!sec) return null
+  const m = Math.floor(sec / 60), s = sec % 60
   return `${m}:${String(s).padStart(2, "0")}`
 }
 
-// ─── Telnyx call log type ──────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-interface TelnyxCallLog {
+interface TelnyxLog {
   id: string
   created_at: string
   duration: number | null
@@ -119,248 +110,196 @@ interface TelnyxCallLog {
   notes: string | null
 }
 
-// ─── Extended lead detail type ─────────────────────────────────────────────────
-
 interface LeadRecording {
-  id: string
-  created_at: string
-  duration_seconds: number
-  ai_summary: string
-  ai_disposition: string
-  raw_transcript: string
+  id: string; created_at: string; duration_seconds: number
+  ai_summary: string; ai_disposition: string; raw_transcript: string
 }
+
+type RichLead = DialerLead & { last_transcript?: string | null; last_ai_summary?: string | null }
 
 interface LeadDetailData {
-  lead: DialerLead & { last_transcript?: string | null; last_ai_summary?: string | null }
+  lead: RichLead
   callHistory: (DialerCallHistory & { duration_seconds?: number; ai_summary?: string })[]
   recordings: LeadRecording[]
-  telnyxLogs: TelnyxCallLog[]
+  telnyxLogs: TelnyxLog[]
 }
 
-// ─── Info row ──────────────────────────────────────────────────────────────────
+// ─── Sub-components ────────────────────────────────────────────────────────────
 
-function InfoRow({
-  icon: Icon,
-  label,
-  value,
-  href,
-}: {
-  icon: typeof Phone
-  label: string
-  value: string | null | undefined
-  href?: string
+function InfoRow({ icon: Icon, label, value, href, mono }: {
+  icon: typeof Phone; label: string; value: string | null | undefined; href?: string; mono?: boolean
 }) {
   if (!value) return null
   return (
-    <div className="flex items-start gap-3 py-1.5">
-      <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+    <div className="flex items-start gap-2.5 py-1.5 first:pt-0 last:pb-0">
+      <Icon className="mt-[3px] w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 leading-none mb-0.5">{label}</p>
         {href ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-sm font-medium text-blue-400 hover:underline truncate"
-          >
-            {value}
-            <ExternalLink className="size-3 shrink-0" />
+          <a href={href} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-sm font-medium text-blue-400 hover:text-blue-300 hover:underline transition-colors truncate">
+            <span className="truncate">{value}</span>
+            <ExternalLink className="w-3 h-3 shrink-0" />
           </a>
         ) : (
-          <p className="text-sm font-medium truncate">{value}</p>
+          <p className={cn("text-sm font-medium truncate", mono && "font-mono text-xs")}>{value}</p>
         )}
       </div>
     </div>
   )
 }
 
-// ─── Collapsible section ───────────────────────────────────────────────────────
-
-function CollapsibleSection({
-  title,
-  icon: Icon,
-  children,
-  defaultOpen = false,
-  badge,
-}: {
-  title: string
-  icon: typeof FileText
-  children: React.ReactNode
-  defaultOpen?: boolean
-  badge?: string
+function Section({ title, icon: Icon, badge, defaultOpen = true, children }: {
+  title: string; icon: typeof FileText; badge?: string | number
+  defaultOpen?: boolean; children: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 text-left mb-2 hover:opacity-80 transition-opacity"
-      >
-        <Icon className="size-3.5 text-muted-foreground" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+      <button onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 py-1 hover:opacity-70 transition-opacity">
+        <Icon className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+        <span className="flex-1 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
           {title}
         </span>
-        {badge && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 mr-1">
-            {badge}
-          </Badge>
+        {badge !== undefined && (
+          <span className="text-[10px] font-mono text-muted-foreground/50 mr-1">{badge}</span>
         )}
-        {open ? (
-          <ChevronUp className="size-3.5 text-muted-foreground/60" />
-        ) : (
-          <ChevronDown className="size-3.5 text-muted-foreground/60" />
-        )}
+        {open
+          ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+          : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+        }
       </button>
-      {open && <div className="animate-in slide-in-from-top-1 duration-150">{children}</div>}
+      {open && <div className="mt-2">{children}</div>}
     </div>
   )
 }
 
-// ─── Notes renderer ────────────────────────────────────────────────────────────
-
-function NotesRenderer({ notes }: { notes: string }) {
-  // Parse timestamp-prefixed lines like "[Mar 11, 2026, 10:30 AM ET] note text"
-  const lines = notes.split("\n")
+function NotesBlock({ text }: { text: string }) {
+  // Parse timestamp lines like "[Mar 11, 2026, 10:30 AM ET] note text"
   return (
-    <div className="space-y-2">
-      {lines.map((line, i) => {
-        const tsMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/)
-        if (tsMatch) {
+    <div className="space-y-1.5 text-sm leading-relaxed">
+      {text.split("\n").map((line, i) => {
+        if (!line.trim()) return null
+        const m = line.match(/^\[([^\]]+)\]\s*(.*)$/)
+        if (m) {
           return (
-            <div key={i} className="text-sm">
-              <span className="text-[10px] font-mono text-muted-foreground mr-1.5">
-                [{tsMatch[1]}]
-              </span>
-              <span>{tsMatch[2]}</span>
+            <div key={i}>
+              <span className="font-mono text-[10px] text-muted-foreground/50 mr-1.5">[{m[1]}]</span>
+              <span className="text-muted-foreground">{m[2]}</span>
             </div>
           )
         }
-        if (!line.trim()) return null
-        return (
-          <p key={i} className="text-sm text-muted-foreground leading-relaxed">
-            {line}
-          </p>
-        )
+        return <p key={i} className="text-muted-foreground">{line}</p>
       })}
     </div>
   )
 }
 
-// ─── Call history card ─────────────────────────────────────────────────────────
-
-function CallHistoryCard({ call }: { call: DialerCallHistory & { duration_seconds?: number; ai_summary?: string } }) {
+function AISummaryBlock({ text }: { text: string }) {
   return (
-    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+    <div className="rounded-lg px-3.5 py-3 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap"
+      style={{ background: "oklch(0.65 0.18 55 / 0.06)", border: "1px solid oklch(0.65 0.18 55 / 0.15)" }}>
+      {text}
+    </div>
+  )
+}
+
+function TranscriptBlock({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border bg-muted/30 max-h-56 overflow-y-auto p-3">
+      <pre className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans">{text}</pre>
+    </div>
+  )
+}
+
+function CallHistoryItem({ call }: {
+  call: DialerCallHistory & { duration_seconds?: number; ai_summary?: string }
+}) {
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground font-medium">
-            Attempt #{call.attempt_number}
-          </span>
-          <Badge
-            variant="outline"
-            className={cn("text-[10px] px-1.5 py-0 border", outcomeBadgeClass(call.outcome))}
-          >
-            {formatOutcomeLabel(call.outcome)}
+          <span className="text-[10px] font-mono text-muted-foreground/50">#{call.attempt_number}</span>
+          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", outcomeBadgeClass(call.outcome))}>
+            {fmtOutcome(call.outcome)}
           </Badge>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-          {call.duration_seconds != null && (
-            <span>{formatDuration(call.duration_seconds)}</span>
-          )}
-          <span>{formatDate(call.created_at)}</span>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
+          {call.duration_seconds && <span>{fmtDuration(call.duration_seconds)}</span>}
+          <span>{fmtDate(call.created_at)}</span>
         </div>
       </div>
-
-      {call.notes && (
-        <p className="text-xs text-muted-foreground leading-relaxed">{call.notes}</p>
-      )}
-
+      {call.notes && <p className="text-xs text-muted-foreground">{call.notes}</p>}
       {call.ai_summary && (
-        <div className="rounded-md bg-orange-500/10 border border-orange-500/20 px-2.5 py-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">
-            AI Summary
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">{call.ai_summary}</p>
+        <div className="rounded px-2.5 py-1.5 text-xs text-muted-foreground"
+          style={{ background: "oklch(0.65 0.18 55 / 0.06)", border: "1px solid oklch(0.65 0.18 55 / 0.12)" }}>
+          <span className="font-semibold text-orange-400 text-[10px] uppercase tracking-wide mr-1">AI:</span>
+          {call.ai_summary}
         </div>
-      )}
-
-      {call.callback_at && (
-        <p className="text-[10px] text-amber-400">
-          Callback scheduled: {formatDate(call.callback_at)}
-        </p>
       )}
     </div>
   )
 }
 
-// ─── Telnyx call log card ──────────────────────────────────────────────────────
-
-function TelnyxLogCard({ log }: { log: TelnyxCallLog }) {
+function TelnyxItem({ log }: { log: TelnyxLog }) {
+  const [showTranscript, setShowTranscript] = useState(false)
   return (
-    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+    <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
-            {log.status ?? "unknown"}
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize border-border">
+            {log.status ?? "—"}
           </Badge>
           {log.direction && (
-            <span className="text-[10px] text-muted-foreground capitalize">{log.direction}</span>
+            <span className="text-[10px] text-muted-foreground/50 capitalize">{log.direction}</span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-          {log.duration != null && (
-            <span>{formatDuration(log.duration)}</span>
-          )}
-          <span>{formatDate(log.created_at)}</span>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
+          {log.duration != null && <span>{fmtDuration(log.duration)}</span>}
+          <span>{fmtDate(log.created_at)}</span>
         </div>
       </div>
-
       {log.ai_summary && (
-        <div className="rounded-md bg-orange-500/10 border border-orange-500/20 px-2.5 py-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">
-            AI Summary
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">{log.ai_summary}</p>
+        <div className="rounded px-2.5 py-1.5 text-xs text-muted-foreground"
+          style={{ background: "oklch(0.65 0.18 55 / 0.06)", border: "1px solid oklch(0.65 0.18 55 / 0.12)" }}>
+          <span className="font-semibold text-orange-400 text-[10px] uppercase tracking-wide mr-1">AI:</span>
+          {log.ai_summary}
         </div>
       )}
-
       {log.transcription && (
-        <CollapsibleSection title="Transcript" icon={MessageSquare}>
-          <pre className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans max-h-40 overflow-y-auto rounded bg-muted/40 p-2">
-            {log.transcription}
-          </pre>
-        </CollapsibleSection>
+        <>
+          <button
+            onClick={() => setShowTranscript((v) => !v)}
+            className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          >
+            <MessageSquare className="w-3 h-3" />
+            {showTranscript ? "Hide" : "Show"} transcript
+          </button>
+          {showTranscript && <TranscriptBlock text={log.transcription} />}
+        </>
       )}
     </div>
   )
 }
 
-// ─── Add Note box ──────────────────────────────────────────────────────────────
-
-function AddNoteBox({
-  leadId,
-  onSaved,
-}: {
-  leadId: string
-  onSaved: (notes: string) => void
-}) {
-  const [note, setNote] = useState("")
+function AddNote({ leadId, onSaved }: { leadId: string; onSaved: (notes: string) => void }) {
+  const [text, setText] = useState("")
   const [saving, setSaving] = useState(false)
-  const textRef = useRef<HTMLTextAreaElement>(null)
 
-  async function handleSave() {
-    if (!note.trim()) return
+  async function save() {
+    if (!text.trim() || saving) return
     setSaving(true)
     try {
       const res = await fetch(`/api/portal/dialer/leads/${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appendNote: note.trim() }),
+        body: JSON.stringify({ appendNote: text.trim() }),
       })
       const data = await res.json()
       if (data.lead?.notes !== undefined) {
         onSaved(data.lead.notes)
-        setNote("")
+        setText("")
       }
     } finally {
       setSaving(false)
@@ -370,36 +309,30 @@ function AddNoteBox({
   return (
     <div className="space-y-2">
       <Textarea
-        ref={textRef}
         placeholder="Add a note…"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
         rows={2}
-        className="text-sm resize-none"
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault()
-            handleSave()
-          }
-        }}
+        className="text-sm resize-none bg-muted/30"
+        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save() }}
       />
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-muted-foreground">⌘+Enter to save</p>
+        <span className="text-[10px] text-muted-foreground/40">⌘ Enter to save</span>
         <Button
           size="sm"
-          disabled={!note.trim() || saving}
-          onClick={handleSave}
-          className="gap-1.5 h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+          disabled={!text.trim() || saving}
+          onClick={save}
+          className="h-7 px-3 gap-1.5 text-xs bg-orange-500 hover:bg-orange-600 text-white font-semibold"
         >
-          <Send className="size-3" />
-          {saving ? "Saving…" : "Save Note"}
+          <Send className="w-3 h-3" />
+          {saving ? "Saving…" : "Save"}
         </Button>
       </div>
     </div>
   )
 }
 
-// ─── Sheet content ─────────────────────────────────────────────────────────────
+// ─── Main export ───────────────────────────────────────────────────────────────
 
 interface LeadDetailSheetProps {
   leadId: string | null
@@ -408,31 +341,29 @@ interface LeadDetailSheetProps {
   onCallNow?: (lead: DialerLead) => void
 }
 
-export function LeadDetailSheet({
-  leadId,
-  open,
-  onOpenChange,
-  onCallNow,
-}: LeadDetailSheetProps) {
+export function LeadDetailSheet({ leadId, open, onOpenChange, onCallNow }: LeadDetailSheetProps) {
   const { data, isLoading, error, mutate } = useSWR<LeadDetailData>(
     open && leadId ? `/api/portal/dialer/leads/${leadId}` : null,
     fetcher
   )
 
+  // Local note override so UI updates instantly after note save
   const [localNotes, setLocalNotes] = useState<string | null>(null)
 
   const lead = data?.lead
   const callHistory = data?.callHistory ?? []
   const telnyxLogs = data?.telnyxLogs ?? []
 
-  // Use local notes if we've just added one (optimistic)
-  const displayNotes = localNotes !== null ? localNotes : (lead?.notes ?? null)
-  const displayAiSummary = lead?.last_ai_summary ?? null
-  const displayTranscript = lead?.last_transcript ?? null
+  const notes = localNotes !== null ? localNotes : (lead?.notes ?? null)
+  const aiSummary = lead?.last_ai_summary ?? null
+  const transcript = lead?.last_transcript ?? null
 
-  const handleNotesSaved = useCallback((newNotes: string) => {
-    setLocalNotes(newNotes)
-  }, [])
+  const handleNotesSaved = useCallback((n: string) => setLocalNotes(n), [])
+
+  function handleOpenChange(v: boolean) {
+    if (!v) setLocalNotes(null)
+    onOpenChange(v)
+  }
 
   async function handleMarkNoShow() {
     if (!leadId) return
@@ -444,7 +375,7 @@ export function LeadDetailSheet({
     mutate()
   }
 
-  async function handleMarkNotInterested() {
+  async function handleNotInterested() {
     if (!leadId) return
     await fetch(`/api/portal/dialer/leads/${leadId}`, {
       method: "PATCH",
@@ -454,78 +385,73 @@ export function LeadDetailSheet({
     mutate()
   }
 
-  async function handleScheduleCallback() {
+  async function handleReschedule() {
     if (!leadId) return
-    const callbackAt = prompt("Enter callback date/time (e.g. 2026-03-15 10:00 AM):")
-    if (!callbackAt) return
+    const raw = prompt("New demo date/time (e.g. 2026-03-20 2:00 PM):")
+    if (!raw) return
+    const d = new Date(raw)
+    if (isNaN(d.getTime())) return alert("Invalid date")
     await fetch(`/api/portal/dialer/leads/${leadId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "callback", next_call_at: new Date(callbackAt).toISOString() }),
+      body: JSON.stringify({ demo_date: d.toISOString(), demo_booked: true }),
     })
     mutate()
   }
 
-  // Reset local notes when sheet closes/reopens
-  const handleOpenChange = (v: boolean) => {
-    if (!v) setLocalNotes(null)
-    onOpenChange(v)
-  }
-
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-lg flex flex-col gap-0 p-0"
-      >
+      <SheetContent side="right" className="w-full sm:max-w-[480px] flex flex-col gap-0 p-0">
+
+        {/* Loading */}
         {isLoading && (
           <div className="flex flex-1 items-center justify-center">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         )}
 
+        {/* Error */}
         {error && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
-            <AlertCircle className="size-8" />
-            <p className="text-sm">Failed to load lead details.</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground px-6 text-center">
+            <AlertCircle className="w-8 h-8 opacity-50" />
+            <p className="text-sm">Couldn&apos;t load lead details.</p>
+            <Button variant="outline" size="sm" onClick={() => mutate()}>Retry</Button>
           </div>
         )}
 
         {!isLoading && !error && lead && (
           <>
-            {/* Header */}
-            <SheetHeader className="border-b px-5 py-4">
+            {/* ── Header ── */}
+            <SheetHeader className="border-b px-5 pt-5 pb-4 shrink-0">
               <div className="flex items-start gap-3 pr-6">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-orange-500/15 shrink-0">
-                  <Building2 className="size-5 text-orange-400" />
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
+                  style={{ background: "oklch(0.65 0.18 55 / 0.12)" }}>
+                  <Building2 className="w-5 h-5" style={{ color: "oklch(0.65 0.18 55)" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <SheetTitle className="truncate text-base leading-tight">
+                  <SheetTitle className="text-base font-semibold leading-tight truncate">
                     {lead.business_name ?? "Unknown Business"}
                   </SheetTitle>
-                  <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                    <Badge
-                      variant="outline"
-                      className={cn("text-[10px] px-2 py-0 border", statusBadgeClass(lead.status))}
-                    >
+                  {lead.owner_name && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{lead.owner_name}</p>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", statusBadgeClass(lead.status))}>
                       {lead.status.replace(/_/g, " ")}
                     </Badge>
-                    <span className="text-[10px] text-muted-foreground">
-                      {lead.attempt_count} attempt{lead.attempt_count !== 1 ? "s" : ""}
-                    </span>
                     {lead.demo_booked && (
-                      <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0 border border-emerald-500/30">
-                        Demo Booked
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                        Demo booked
                       </Badge>
                     )}
                     {lead.last_outcome && (
-                      <Badge
-                        variant="outline"
-                        className={cn("text-[10px] px-2 py-0 border", outcomeBadgeClass(lead.last_outcome))}
-                      >
-                        {formatOutcomeLabel(lead.last_outcome)}
+                      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", outcomeBadgeClass(lead.last_outcome))}>
+                        {fmtOutcome(lead.last_outcome)}
                       </Badge>
                     )}
+                    <span className="text-[10px] text-muted-foreground/50 ml-0.5">
+                      {lead.attempt_count} {lead.attempt_count === 1 ? "call" : "calls"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -534,179 +460,122 @@ export function LeadDetailSheet({
               </SheetDescription>
             </SheetHeader>
 
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-              {/* Contact info */}
-              <div>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Contact Info
-                </p>
-                <div className="divide-y divide-border/50">
-                  <InfoRow
-                    icon={User}
-                    label="Owner"
-                    value={lead.owner_name ?? lead.first_name}
-                  />
-                  <InfoRow
-                    icon={Phone}
-                    label="Phone"
-                    value={lead.phone_number}
-                    href={lead.phone_number ? `tel:${lead.phone_number}` : undefined}
-                  />
-                  <InfoRow
-                    icon={MapPin}
-                    label="State"
-                    value={lead.state}
-                  />
-                  <InfoRow
-                    icon={Clock}
-                    label="Timezone"
-                    value={lead.timezone ?? undefined}
-                  />
-                  <InfoRow
-                    icon={Globe}
-                    label="Website"
-                    value={lead.website}
-                    href={
-                      lead.website
-                        ? lead.website.startsWith("http")
-                          ? lead.website
-                          : `https://${lead.website}`
-                        : undefined
-                    }
-                  />
+            {/* ── Body ── */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+
+              {/* Contact */}
+              <Section title="Contact" icon={User} defaultOpen={true}>
+                <div className="divide-y divide-border/40">
+                  <InfoRow icon={User} label="Owner" value={lead.owner_name ?? lead.first_name} />
+                  <InfoRow icon={Phone} label="Phone" value={lead.phone_number} mono
+                    href={lead.phone_number ? `tel:${lead.phone_number}` : undefined} />
+                  <InfoRow icon={MapPin} label="State" value={lead.state} />
+                  <InfoRow icon={Clock} label="Timezone" value={lead.timezone} />
+                  <InfoRow icon={Globe} label="Website" value={lead.website}
+                    href={lead.website ? (lead.website.startsWith("http") ? lead.website : `https://${lead.website}`) : undefined} />
                   {lead.demo_booked && lead.demo_date && (
-                    <InfoRow
-                      icon={CalendarClock}
-                      label="Demo Date (ET)"
-                      value={formatDateET(lead.demo_date)}
-                    />
+                    <InfoRow icon={CalendarClock} label="Demo date (ET)" value={fmtDateET(lead.demo_date)} />
                   )}
                 </div>
-              </div>
+              </Section>
 
-              <Separator />
+              <Separator className="opacity-50" />
 
               {/* Notes */}
-              <CollapsibleSection title="Notes" icon={FileText} defaultOpen={true}>
-                {displayNotes ? (
-                  <div className="mb-3 rounded-lg bg-muted/30 border p-3">
-                    <NotesRenderer notes={displayNotes} />
+              <Section title="Notes" icon={FileText} defaultOpen={true}>
+                {notes ? (
+                  <div className="rounded-lg border bg-muted/20 p-3 mb-3">
+                    <NotesBlock text={notes} />
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground mb-3">No notes yet.</p>
+                  <p className="text-xs text-muted-foreground/50 mb-3">No notes yet.</p>
                 )}
-                <AddNoteBox leadId={lead.id} onSaved={handleNotesSaved} />
-              </CollapsibleSection>
+                <AddNote leadId={lead.id} onSaved={handleNotesSaved} />
+              </Section>
 
               {/* AI Summary */}
-              {displayAiSummary && (
+              {aiSummary && (
                 <>
-                  <Separator />
-                  <CollapsibleSection title="AI Summary" icon={Sparkles} defaultOpen={true}>
-                    <div className="rounded-lg bg-orange-500/10 border border-orange-500/20 p-3">
-                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                        {displayAiSummary}
-                      </p>
-                    </div>
-                  </CollapsibleSection>
+                  <Separator className="opacity-50" />
+                  <Section title="AI Summary" icon={Sparkles} defaultOpen={true}>
+                    <AISummaryBlock text={aiSummary} />
+                  </Section>
                 </>
               )}
 
-              {/* Full Transcript */}
-              {displayTranscript && (
+              {/* Transcript */}
+              {transcript && (
                 <>
-                  <Separator />
-                  <CollapsibleSection title="Last Transcript" icon={MessageSquare} defaultOpen={false}>
-                    <div className="rounded-lg bg-muted/30 border p-3 max-h-64 overflow-y-auto">
-                      <pre className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans">
-                        {displayTranscript}
-                      </pre>
-                    </div>
-                  </CollapsibleSection>
+                  <Separator className="opacity-50" />
+                  <Section title="Last Transcript" icon={MessageSquare} defaultOpen={false}>
+                    <TranscriptBlock text={transcript} />
+                  </Section>
                 </>
               )}
 
               {/* Telnyx call logs */}
               {telnyxLogs.length > 0 && (
                 <>
-                  <Separator />
-                  <CollapsibleSection
-                    title="Telnyx Call Logs"
-                    icon={Phone}
-                    defaultOpen={false}
-                    badge={String(telnyxLogs.length)}
-                  >
+                  <Separator className="opacity-50" />
+                  <Section title="Call Logs" icon={Phone} badge={telnyxLogs.length} defaultOpen={false}>
                     <div className="space-y-2">
-                      {telnyxLogs.map((log) => (
-                        <TelnyxLogCard key={log.id} log={log} />
-                      ))}
+                      {telnyxLogs.map((log) => <TelnyxItem key={log.id} log={log} />)}
                     </div>
-                  </CollapsibleSection>
+                  </Section>
                 </>
               )}
 
-              {/* Dialer call history */}
+              {/* Dialer history */}
               {callHistory.length > 0 && (
                 <>
-                  <Separator />
-                  <CollapsibleSection
-                    title={`Dialer Call History`}
-                    icon={Phone}
-                    defaultOpen={false}
-                    badge={String(callHistory.length)}
-                  >
+                  <Separator className="opacity-50" />
+                  <Section title="Dialer History" icon={Phone} badge={callHistory.length} defaultOpen={false}>
                     <div className="space-y-2">
-                      {callHistory.map((call) => (
-                        <CallHistoryCard key={call.id} call={call} />
-                      ))}
+                      {callHistory.map((c) => <CallHistoryItem key={c.id} call={c} />)}
                     </div>
-                  </CollapsibleSection>
+                  </Section>
                 </>
               )}
+
             </div>
 
-            {/* Footer actions */}
-            <SheetFooter className="border-t px-5 py-3 flex-row flex-wrap gap-2">
-              <Button
-                size="sm"
-                className="flex-1 gap-1.5 bg-orange-500 text-white hover:bg-orange-600"
-                onClick={() => {
-                  if (lead && onCallNow) onCallNow(lead)
-                  onOpenChange(false)
-                }}
-              >
-                <Gauge className="size-3.5" />
-                Call Now
-              </Button>
-              {lead.demo_booked && (
+            {/* ── Footer ── */}
+            <SheetFooter className="border-t px-4 py-3 flex-row gap-2 shrink-0 flex-wrap">
+              {onCallNow && (
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-amber-400 hover:text-amber-300 border-amber-500/30 hover:bg-amber-500/10"
-                  onClick={handleMarkNoShow}
+                  className="flex-1 gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold"
+                  onClick={() => { onCallNow(lead); onOpenChange(false) }}
                 >
-                  <CalendarX className="size-3.5" />
-                  No-Show
+                  <Gauge className="w-3.5 h-3.5" />
+                  Call now
                 </Button>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={handleScheduleCallback}
-              >
-                <CalendarClock className="size-3.5" />
-                Reschedule
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 text-red-400 hover:text-red-300 border-red-500/30 hover:bg-red-500/10"
-                onClick={handleMarkNotInterested}
-              >
-                <PhoneOff className="size-3.5" />
-                Not Interested
+              {lead.demo_booked && (
+                <>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={handleReschedule}>
+                    <PhoneForwarded className="w-3.5 h-3.5" />
+                    Reschedule
+                  </Button>
+                  <Button size="sm" variant="outline"
+                    className="gap-1.5 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300"
+                    onClick={handleMarkNoShow}>
+                    <CalendarX className="w-3.5 h-3.5" />
+                    No-show
+                  </Button>
+                </>
+              )}
+              {!lead.demo_booked && (
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={handleReschedule}>
+                  <CalendarClock className="w-3.5 h-3.5" />
+                  Callback
+                </Button>
+              )}
+              <Button size="sm" variant="outline"
+                className="gap-1.5 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10 hover:text-red-300"
+                onClick={handleNotInterested}>
+                <Ban className="w-3.5 h-3.5" />
+                Not interested
               </Button>
             </SheetFooter>
           </>

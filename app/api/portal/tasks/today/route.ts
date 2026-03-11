@@ -44,9 +44,11 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const admin = getAdmin()
-  const today = new Date().toISOString().split("T")[0]
-  const todayDate = new Date()
-  const dayOfWeek = todayDate.getDay() // 0 = Sunday, 6 = Saturday
+  // Use ET timezone for date/weekday detection (user is in Eastern Time)
+  const nowInET = new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+  const etDate = new Date(nowInET)
+  const today = etDate.toLocaleDateString("en-CA") // YYYY-MM-DD format in ET
+  const dayOfWeek = etDate.getDay() // 0 = Sunday, 6 = Saturday
   const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5
 
   // Fetch existing tasks for today

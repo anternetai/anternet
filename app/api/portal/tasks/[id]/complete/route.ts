@@ -67,9 +67,10 @@ export async function PATCH(
 
     if (allComplete && today !== stats.last_completed_date) {
       // Increment streak
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yesterdayStr = yesterday.toISOString().split("T")[0]
+      // Use ET timezone to match task_date records
+      const etNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }))
+      etNow.setDate(etNow.getDate() - 1)
+      const yesterdayStr = etNow.toLocaleDateString("en-CA")
 
       if (stats.last_completed_date === yesterdayStr) {
         newStreak = (stats.current_streak ?? 0) + 1

@@ -27,10 +27,13 @@ export async function GET() {
     .single()
 
   // Get last 7 days of tasks for weekly summary
-  const sevenDaysAgo = new Date()
+  // Use ET timezone so dates match the task records (user is in Eastern Time)
+  const nowInET = new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
+  const etNow = new Date(nowInET)
+  const today = etNow.toLocaleDateString("en-CA") // YYYY-MM-DD
+  const sevenDaysAgo = new Date(etNow)
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-  const weekStart = sevenDaysAgo.toISOString().split("T")[0]
-  const today = new Date().toISOString().split("T")[0]
+  const weekStart = sevenDaysAgo.toLocaleDateString("en-CA")
 
   const { data: weeklyTasks } = await admin
     .from("daily_tasks")

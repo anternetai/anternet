@@ -82,7 +82,10 @@ export async function PATCH(
       hour12: true,
     })
 
-    const newNotes = `${lead?.notes ?? ""}[${timestamp} ET] ${body.appendNote}\n\n`
+    const existingNotes = lead?.notes ?? ""
+    const newNotes = existingNotes
+      ? `${existingNotes}\n[${timestamp} ET] ${body.appendNote}`
+      : `[${timestamp} ET] ${body.appendNote}`
 
     const { data, error } = await admin
       .from("dialer_leads")
