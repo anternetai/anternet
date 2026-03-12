@@ -19,8 +19,7 @@ export default function CRMLogin() {
       body: JSON.stringify({ password }),
     })
     if (res.ok) {
-      router.push("/crm")
-      router.refresh()
+      window.location.href = "/crm"
     } else {
       setError("Wrong password. Try again.")
       setLoading(false)

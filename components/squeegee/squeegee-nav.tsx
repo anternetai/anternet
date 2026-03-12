@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { LayoutDashboard, Briefcase, Users, CalendarDays, FileText, MapPin, Sun, Moon, LogOut } from "lucide-react"
+import { LayoutDashboard, Briefcase, Users, CalendarDays, MapPin, Sun, Moon, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
 
@@ -13,7 +13,6 @@ const navItems = [
   { label: "Clients", href: "/crm/clients", icon: Users },
   { label: "Calendar", href: "/crm/calendar", icon: CalendarDays },
   { label: "Territories", href: "/crm/territories", icon: MapPin },
-  { label: "Invoices", href: "/crm/invoices", icon: FileText },
 ]
 
 export function SqueegeeNav() {
