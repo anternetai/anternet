@@ -203,3 +203,35 @@
   margin-left: 0.25rem;
   border-color: #6b7280;
 }
+
+/* ─── Marketing Homepage ─── */
+
+.hero-bg {
+  background: #050505;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(249, 115, 22, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 50% 120%, rgba(249, 115, 22, 0.04) 0%, transparent 50%);
+  animation: hero-pulse 8s ease-in-out infinite alternate;
+}
+
+@keyframes hero-pulse {
+  0% {
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(249, 115, 22, 0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 50% 120%, rgba(249, 115, 22, 0.04) 0%, transparent 50%);
+  }
+  100% {
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(249, 115, 22, 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 45% at 50% 115%, rgba(249, 115, 22, 0.06) 0%, transparent 55%);
+  }
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 70%);
+}
