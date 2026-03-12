@@ -53,18 +53,6 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/",
-        has: [{ type: "host", value: "homefieldhub.com" }],
-        destination: "/call",
-        permanent: false,
-      },
-      {
-        source: "/",
-        has: [{ type: "host", value: "www.homefieldhub.com" }],
-        destination: "/call",
-        permanent: false,
-      },
-      {
-        source: "/",
         has: [{ type: "host", value: "drsqueegeeclt.com" }],
         destination: "/get-quote",
         permanent: true,
