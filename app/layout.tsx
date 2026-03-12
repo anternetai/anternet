@@ -26,17 +26,45 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://homefieldhub.com"),
-  title: "HomeField Hub | AI-Powered Lead Generation for Home Service Contractors",
-  description: "Exclusive Facebook ads, AI-powered follow-up, and performance-based pricing. $200 per booked appointment — no retainer, no risk.",
-  keywords: ["roofing leads", "contractor lead generation", "home service marketing", "roofing marketing", "AI lead generation", "Facebook ads contractors"],
+  title: "HomeField Hub | AI Lead Generation for Home Service Contractors",
+  description:
+    "Performance-based lead generation for roofing and remodeling contractors. Pay $200 per showed appointment. No retainer, no contracts, no risk.",
+  keywords: [
+    "lead generation",
+    "roofing leads",
+    "home service leads",
+    "AI lead generation",
+    "pay per appointment",
+    "roofing contractor leads",
+    "remodeling leads",
+  ],
   icons: {
     icon: "/favicon.svg",
   },
   openGraph: {
-    title: "HomeField Hub | AI-Powered Lead Generation",
-    description: "Exclusive Facebook ads, AI-powered follow-up, and performance-based pricing for home service contractors.",
-    type: "website",
+    title: "HomeField Hub | AI Lead Generation for Home Service Contractors",
+    description:
+      "Performance-based lead generation for roofing and remodeling contractors. Pay $200 per showed appointment. No retainer, no contracts, no risk.",
     url: "https://homefieldhub.com",
+    siteName: "HomeField Hub",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HomeField Hub | AI Lead Generation for Home Service Contractors",
+    description:
+      "Performance-based lead generation for roofing and remodeling contractors. Pay $200 per showed appointment.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  alternates: {
+    canonical: "https://homefieldhub.com",
   },
 };
 
