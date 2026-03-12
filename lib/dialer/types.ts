@@ -59,6 +59,7 @@ export interface DialerQueueResponse {
   currentHourBlock: string | null
   callbacksDue: DialerLead[]
   breakdownByTimezone: Record<DialerTimezone, number>
+  breakdownByState?: Record<string, number>
   selectedNumber: SelectedNumber | null
   phonePoolHealth?: {
     active: number

@@ -109,8 +109,11 @@ export async function POST(req: NextRequest) {
       break
     }
     case "not_interested": {
-      newStatus = "completed"
+      // Park for 60 days — revisit later, not permanently dead
+      newStatus = "queued"
       notInterested = true
+      const retryDate = new Date(Date.now() + 60 * 86400000)
+      nextCallAt = retryDate.toISOString()
       break
     }
     case "wrong_number": {
@@ -168,8 +171,8 @@ export async function POST(req: NextRequest) {
   })
 
   // 5. Also log to existing call_logs table for dashboard stats
-  const contactMade = ["conversation", "demo_booked", "callback", "not_interested"].includes(outcome)
-  const isConversation = ["conversation", "demo_booked"].includes(outcome)
+  const contactMade = ["conversation", "demo_booked", "callback", "not_interested", "wrong_number"].includes(outcome)
+  const isConversation = ["conversation", "demo_booked", "not_interested", "wrong_number"].includes(outcome)
 
   await admin.from("call_logs").insert({
     business_name: lead.business_name,

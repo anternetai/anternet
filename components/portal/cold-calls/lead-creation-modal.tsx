@@ -38,6 +38,8 @@ interface LeadCreationModalProps {
   lead: DialerLead | null
   outcome: "demo_booked" | "conversation" | "callback"
   onComplete: (data: { demoDate: string; email: string; notes: string }) => void
+  prefillDemoDate?: string
+  prefillEmail?: string
 }
 
 // ─── Outcome config ───────────────────────────────────────────────────────────
@@ -74,7 +76,7 @@ const OUTCOME_CONFIG = {
 
 // ─── Google Calendar URL builder ──────────────────────────────────────────────
 
-function buildGCalUrl(params: {
+export function buildGCalUrl(params: {
   businessName: string
   contactName: string
   email: string
@@ -122,6 +124,8 @@ export function LeadCreationModal({
   lead,
   outcome,
   onComplete,
+  prefillDemoDate,
+  prefillEmail,
 }: LeadCreationModalProps) {
   // ── Form state ──────────────────────────────────────────────────────────────
   const [businessName, setBusinessName] = useState("")
@@ -146,12 +150,12 @@ export function LeadCreationModal({
     setPhone(lead.phone_number ?? "")
     setState(lead.state ?? "")
     setWebsite(lead.website ?? "")
-    setEmail("")
-    setDemoDate("")
+    setEmail(prefillEmail || "")
+    setDemoDate(prefillDemoDate || "")
     setNotes("")
     setGcalUrl(null)
     setCopied(false)
-  }, [lead])
+  }, [lead, prefillDemoDate, prefillEmail])
 
   // ── Rebuild GCal URL whenever relevant fields change ────────────────────────
   useEffect(() => {

@@ -114,8 +114,8 @@ export function QuickLog({
       setSaving(true)
       setLastOutcome(outcome)
 
-      const contactMade = ["conversation", "demo_booked", "callback", "not_interested"].includes(outcome)
-      const isConversation = ["conversation", "demo_booked"].includes(outcome)
+      const contactMade = ["conversation", "demo_booked", "callback", "not_interested", "wrong_number"].includes(outcome)
+      const isConversation = ["conversation", "demo_booked", "not_interested", "wrong_number"].includes(outcome)
       const isDemoBooked = outcome === "demo_booked"
 
       try {

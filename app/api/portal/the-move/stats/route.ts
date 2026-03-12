@@ -114,7 +114,7 @@ export async function GET() {
     activeClients: clients.length,
     clientNames: clients.map((c) => c.legal_business_name).filter(Boolean),
     weekDials: weekCalls.length,
-    weekConversations: weekCalls.filter((c) => c.outcome === "conversation" || c.outcome === "demo_booked").length,
+    weekConversations: weekCalls.filter((c) => ["conversation", "demo_booked", "not_interested", "wrong_number"].includes(c.outcome)).length,
     weekDemos: weekCalls.filter((c) => c.outcome === "demo_booked").length,
     todayDials: todayDialsRes.count || 0,
     weekDoorsKnocked: knocks.reduce((sum, k) => sum + (k.doors_knocked || 0), 0) + tdKnocked,
