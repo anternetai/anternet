@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
@@ -51,6 +51,62 @@ import {
 import { UserMenu } from "./user-menu"
 import { TEAM_ROLE_CONFIG } from "@/lib/portal/constants"
 import type { TeamMemberRole } from "@/lib/portal/types"
+import { createClient } from "@/lib/supabase/client"
+
+// ─── Hook: live pending tasks count badge ──────────────────────────────────────
+
+function getTodayET(): string {
+  // Returns YYYY-MM-DD in Eastern Time
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })
+}
+
+function useTodayTasksBadge(): number {
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function fetchCount() {
+      const today = getTodayET()
+      const { count: c } = await supabase
+        .from("daily_tasks")
+        .select("*", { count: "exact", head: true })
+        .eq("task_date", today)
+        .eq("completed", false)
+      setCount(c ?? 0)
+    }
+
+    fetchCount()
+    const interval = setInterval(fetchCount, 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return count
+}
+
+// ─── Hook: live pending callbacks badge ────────────────────────────────────────
+
+function usePendingCallbacksBadge(): number {
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function fetchCount() {
+      const { count: c } = await supabase
+        .from("dialer_leads")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "callback")
+      setCount(c ?? 0)
+    }
+
+    fetchCount()
+    const interval = setInterval(fetchCount, 120_000) // refresh every 2 min
+    return () => clearInterval(interval)
+  }, [])
+
+  return count
+}
 
 type NavItem = {
   label: string
@@ -134,11 +190,13 @@ function CollapsibleNavGroup({
   pathname,
   onNavClick,
   defaultOpen,
+  badges,
 }: {
   group: NavGroup
   pathname: string
   onNavClick: () => void
   defaultOpen: boolean
+  badges?: Record<string, number>
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const groupActive = isGroupActive(group.items, pathname)
@@ -188,6 +246,11 @@ function CollapsibleNavGroup({
                         }`}
                       />
                       <span>{item.label}</span>
+                      {badges?.[item.href] ? (
+                        <span className="ml-auto text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-bold leading-none">
+                          {badges[item.href]}
+                        </span>
+                      ) : null}
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
@@ -203,6 +266,8 @@ function CollapsibleNavGroup({
 export function SidebarNav({ user }: SidebarNavProps) {
   const pathname = usePathname()
   const { setOpenMobile } = useSidebar()
+  const tasksBadgeCount = useTodayTasksBadge()
+  const callbacksBadgeCount = usePendingCallbacksBadge()
 
   function handleNavClick() {
     setOpenMobile(false)
@@ -239,6 +304,7 @@ export function SidebarNav({ user }: SidebarNavProps) {
             <SidebarMenu>
               {filteredNavItems.map((item) => {
                 const active = isItemActive(item.href, pathname)
+                const isDailyTasks = item.href === "/portal/tasks"
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -252,6 +318,11 @@ export function SidebarNav({ user }: SidebarNavProps) {
                           className={`size-4 ${active ? "text-orange-500" : ""}`}
                         />
                         <span>{item.label}</span>
+                        {isDailyTasks && tasksBadgeCount > 0 && (
+                          <span className="ml-auto text-xs bg-orange-500 text-white rounded-full px-1.5 py-0.5 font-bold leading-none">
+                            {tasksBadgeCount}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -273,6 +344,7 @@ export function SidebarNav({ user }: SidebarNavProps) {
                     pathname={pathname}
                     onNavClick={handleNavClick}
                     defaultOpen={isGroupActive(group.items, pathname)}
+                    badges={callbacksBadgeCount > 0 ? { "/portal/cold-calls": callbacksBadgeCount } : undefined}
                   />
                 ))}
               </SidebarMenu>
