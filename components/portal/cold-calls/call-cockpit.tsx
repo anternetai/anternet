@@ -41,8 +41,10 @@ import {
   ChevronUp,
   Circle,
   Square,
+  Check,
   CheckCircle,
   CheckCircle2,
+  Mail,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -54,7 +56,7 @@ import { cn } from "@/lib/utils"
 import type { DialerLead, DialerOutcome, DialerQueueResponse } from "@/lib/dialer/types"
 import type { AIAnalysisResult, RecordingState } from "@/lib/dialer/ai-types"
 import type { CallState } from "@/lib/dialer/types"
-import { LeadCreationModal } from "./lead-creation-modal"
+import { LeadCreationModal, buildGCalUrl } from "./lead-creation-modal"
 import { LiveNotes } from "./live-notes"
 import { KeyboardShortcuts } from "./keyboard-shortcuts"
 import { AIAnalysisPanel } from "./ai-analysis-panel"
@@ -186,9 +188,10 @@ function formatDuration(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`
 }
 
-async function fetchQueue(tzOverride?: string): Promise<DialerQueueResponse> {
+async function fetchQueue(tzOverride?: string, stateOverride?: string): Promise<DialerQueueResponse> {
   const params = new URLSearchParams({ limit: "500" })
   if (tzOverride) params.set("timezone", tzOverride)
+  if (stateOverride) params.set("state", stateOverride)
   const res = await fetch(`/api/portal/dialer/queue?${params}`)
   if (!res.ok) throw new Error("Failed to fetch queue")
   return res.json()
@@ -200,18 +203,22 @@ async function fetchQueue(tzOverride?: string): Promise<DialerQueueResponse> {
 
 const POSITION_KEY = "dialer-queue-position"
 
-function saveQueuePosition(timezone: string, index: number) {
+function getPositionKey(timezone: string, state?: string | null): string {
+  return state ? `${timezone}-${state}` : timezone
+}
+
+function saveQueuePosition(timezone: string, index: number, state?: string | null) {
   try {
     const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || "{}")
-    saved[timezone] = { index, updatedAt: new Date().toISOString() }
+    saved[getPositionKey(timezone, state)] = { index, updatedAt: new Date().toISOString() }
     localStorage.setItem(POSITION_KEY, JSON.stringify(saved))
   } catch {}
 }
 
-function loadQueuePosition(timezone: string, maxIndex: number): number {
+function loadQueuePosition(timezone: string, maxIndex: number, state?: string | null): number {
   try {
     const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || "{}")
-    const pos = saved[timezone]?.index
+    const pos = saved[getPositionKey(timezone, state)]?.index
     if (typeof pos === "number" && pos > 0 && pos < maxIndex) {
       return pos
     }
@@ -580,14 +587,22 @@ function useRecordingPreviewWindow(
 
 export function CallCockpit() {
   const [timezoneOverride, setTimezoneOverride] = useState<string | null>(null)
+  const [stateFilter, setStateFilter] = useState<string | null>(null)
+  const [showStateDropdown, setShowStateDropdown] = useState<string | null>(null)
+
+  const swrKey = stateFilter
+    ? `cold-call-queue-cockpit-${timezoneOverride}-${stateFilter}`
+    : timezoneOverride
+      ? `cold-call-queue-cockpit-${timezoneOverride}`
+      : "cold-call-queue-cockpit"
 
   const {
     data: queue,
     isLoading,
     mutate,
   } = useSWR(
-    timezoneOverride ? `cold-call-queue-cockpit-${timezoneOverride}` : "cold-call-queue-cockpit",
-    () => fetchQueue(timezoneOverride || undefined),
+    swrKey,
+    () => fetchQueue(timezoneOverride || undefined, stateFilter || undefined),
     {
       revalidateOnFocus: true,
       refreshInterval: 120000,
@@ -614,6 +629,12 @@ export function CallCockpit() {
   const [aiSuggestedOutcome, setAiSuggestedOutcome] = useState<ColdCallOutcome | null>(null)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [leadModalOutcome, setLeadModalOutcome] = useState<"demo_booked" | "conversation" | "callback">("demo_booked")
+
+  // Quick Book state
+  const [showQuickBook, setShowQuickBook] = useState(false)
+  const [quickBookEmail, setQuickBookEmail] = useState("")
+  const [quickBookDate, setQuickBookDate] = useState("")
+  const [quickBookSent, setQuickBookSent] = useState(false)
 
   // AI state
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
@@ -690,6 +711,11 @@ export function CallCockpit() {
     setShowDemoDatePicker(false)
     setSelectedOutcome(null)
     setAiSuggestedOutcome(null)
+    // Reset Quick Book
+    setShowQuickBook(false)
+    setQuickBookEmail("")
+    setQuickBookDate("")
+    setQuickBookSent(false)
   }, [])
 
   const submitDisposition = useCallback(
@@ -797,29 +823,38 @@ export function CallCockpit() {
   // Restore queue position from localStorage on first load
   useEffect(() => {
     if (!positionRestored && queue?.currentTimezone && leads.length > 0) {
-      const saved = loadQueuePosition(queue.currentTimezone, leads.length)
+      const saved = loadQueuePosition(queue.currentTimezone, leads.length, stateFilter)
       if (saved > 0) setCurrentIndex(saved)
       setTrackedTimezone(queue.currentTimezone)
       setPositionRestored(true)
     }
-  }, [positionRestored, queue?.currentTimezone, leads.length])
+  }, [positionRestored, queue?.currentTimezone, leads.length, stateFilter])
 
   // Handle timezone transitions (save old position, load new one)
   useEffect(() => {
     if (queue?.currentTimezone && trackedTimezone && queue.currentTimezone !== trackedTimezone) {
-      saveQueuePosition(trackedTimezone, currentIndex)
-      const saved = loadQueuePosition(queue.currentTimezone, leads.length)
+      saveQueuePosition(trackedTimezone, currentIndex, stateFilter)
+      const saved = loadQueuePosition(queue.currentTimezone, leads.length, stateFilter)
       setCurrentIndex(saved)
       setTrackedTimezone(queue.currentTimezone)
     }
-  }, [queue?.currentTimezone, trackedTimezone, currentIndex, leads.length])
+  }, [queue?.currentTimezone, trackedTimezone, currentIndex, leads.length, stateFilter])
 
   // Persist position whenever it changes
   useEffect(() => {
     if (queue?.currentTimezone && positionRestored) {
-      saveQueuePosition(queue.currentTimezone, currentIndex)
+      saveQueuePosition(queue.currentTimezone, currentIndex, stateFilter)
     }
-  }, [currentIndex, queue?.currentTimezone, positionRestored])
+  }, [currentIndex, queue?.currentTimezone, positionRestored, stateFilter])
+
+  // Close state dropdown on click outside
+  useEffect(() => {
+    if (!showStateDropdown) return
+    function handleClick() { setShowStateDropdown(null) }
+    // Delay to avoid closing immediately from the opening click
+    const id = setTimeout(() => document.addEventListener("click", handleClick), 0)
+    return () => { clearTimeout(id); document.removeEventListener("click", handleClick) }
+  }, [showStateDropdown])
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -836,8 +871,14 @@ export function CallCockpit() {
         setPowerMode((v) => !v)
         return
       }
+      if (e.key === "b" && !inText && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        setShowQuickBook((v) => !v)
+        return
+      }
       if (e.key === "Escape") {
         setAutoDialActive(false)
+        setShowStateDropdown(null)
         return
       }
       if ((e.ctrlKey || e.metaKey) && !inText) {
@@ -1278,30 +1319,92 @@ export function CallCockpit() {
         </button>
       )}
 
-      {/* Timezone picker — switch queue to any timezone */}
-      <div className="flex items-center gap-1 shrink-0">
-        {(["ET", "CT", "MT", "PT"] as const).map((tz) => (
+      {/* Timezone picker — switch queue to any timezone, with state drill-down */}
+      <div className="flex items-center gap-1 shrink-0 relative">
+        {(["ET", "CT", "MT", "PT"] as const).map((tz) => {
+          const isActive = timezoneOverride === tz || (!timezoneOverride && queue?.currentTimezone === tz)
+          const hasStateFilter = stateFilter && timezoneOverride === tz
+          const label = hasStateFilter ? `${tz}:${stateFilter}` : tz
+          return (
+            <div key={tz} className="relative">
+              <button
+                onClick={() => {
+                  if (timezoneOverride === tz) {
+                    // Already on this TZ — toggle state dropdown
+                    setShowStateDropdown(showStateDropdown === tz ? null : tz)
+                  } else {
+                    // Switch to this TZ
+                    setTimezoneOverride(tz)
+                    setStateFilter(null)
+                    setShowStateDropdown(null)
+                    setCurrentIndex(0)
+                  }
+                }}
+                className={cn(
+                  "px-2 py-1 rounded text-[11px] font-mono font-bold transition-colors",
+                  isActive
+                    ? "bg-orange-500 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                )}
+                title={
+                  timezoneOverride === tz
+                    ? "Click to pick a state"
+                    : `Switch queue to ${tz} leads`
+                }
+              >
+                {label}
+              </button>
+              {/* State dropdown */}
+              {showStateDropdown === tz && queue?.breakdownByState && (
+                <div className="absolute top-full left-0 mt-1 z-50 min-w-[120px] rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-xl">
+                  <button
+                    onClick={() => {
+                      setStateFilter(null)
+                      setShowStateDropdown(null)
+                      setCurrentIndex(0)
+                    }}
+                    className={cn(
+                      "w-full px-3 py-1.5 text-left text-[11px] font-mono hover:bg-zinc-800 transition-colors flex justify-between items-center",
+                      !stateFilter ? "text-orange-400 font-bold" : "text-zinc-300"
+                    )}
+                  >
+                    <span>All</span>
+                    <span className="text-zinc-500 tabular-nums">
+                      {queue.breakdownByTimezone[tz as keyof typeof queue.breakdownByTimezone]}
+                    </span>
+                  </button>
+                  {Object.entries(queue.breakdownByState)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([st, count]) => (
+                      <button
+                        key={st}
+                        onClick={() => {
+                          setStateFilter(st)
+                          setShowStateDropdown(null)
+                          setCurrentIndex(0)
+                        }}
+                        className={cn(
+                          "w-full px-3 py-1.5 text-left text-[11px] font-mono hover:bg-zinc-800 transition-colors flex justify-between items-center",
+                          stateFilter === st ? "text-orange-400 font-bold" : "text-zinc-300"
+                        )}
+                      >
+                        <span>{st}</span>
+                        <span className="text-zinc-500 tabular-nums">{count}</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {(timezoneOverride || stateFilter) && (
           <button
-            key={tz}
             onClick={() => {
-              const next = timezoneOverride === tz ? null : tz
-              setTimezoneOverride(next)
+              setTimezoneOverride(null)
+              setStateFilter(null)
+              setShowStateDropdown(null)
               setCurrentIndex(0)
             }}
-            className={cn(
-              "px-2 py-1 rounded text-[11px] font-mono font-bold transition-colors",
-              (timezoneOverride === tz || (!timezoneOverride && queue?.currentTimezone === tz))
-                ? "bg-orange-500 text-white"
-                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
-            )}
-            title={timezoneOverride === tz ? `Click to return to auto schedule` : `Switch queue to ${tz} leads`}
-          >
-            {tz}
-          </button>
-        ))}
-        {timezoneOverride && (
-          <button
-            onClick={() => { setTimezoneOverride(null); setCurrentIndex(0) }}
             className="px-1.5 py-1 rounded text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
             title="Return to auto schedule"
           >
@@ -1312,6 +1415,24 @@ export function CallCockpit() {
 
       {/* Controls */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Quick Book toggle */}
+        <Button
+          variant={showQuickBook ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowQuickBook((v) => !v)}
+          title="Quick Book Demo (B)"
+          className={cn(
+            "gap-1.5 relative",
+            showQuickBook && "bg-green-600 hover:bg-green-700 text-white"
+          )}
+        >
+          <CalendarCheck className="size-3.5" />
+          <span className="hidden sm:inline">Book</span>
+          {quickBookSent && !showQuickBook && (
+            <span className="absolute -top-1 -right-1 size-2.5 rounded-full bg-green-500" />
+          )}
+        </Button>
+
         {/* Power mode toggle */}
         <Button
           variant={powerMode ? "default" : "outline"}
@@ -1517,6 +1638,63 @@ export function CallCockpit() {
       <div className="hidden md:flex md:flex-col md:gap-3">
         {/* Header */}
         {headerBar}
+
+        {/* ── Quick Book Panel ────────────────────────────────────────────── */}
+        {showQuickBook && currentLead && (
+          <div className="flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 shadow-sm">
+            <CalendarCheck className="size-4 shrink-0 text-green-400" />
+            <div className="flex flex-1 items-center gap-3 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <Mail className="size-3.5 shrink-0 text-zinc-500" />
+                <Input
+                  type="email"
+                  placeholder="prospect@email.com"
+                  value={quickBookEmail}
+                  onChange={(e) => setQuickBookEmail(e.target.value)}
+                  className="h-8 border-zinc-600 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500 text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <Clock className="size-3.5 shrink-0 text-zinc-500" />
+                <Input
+                  type="datetime-local"
+                  value={quickBookDate}
+                  onChange={(e) => setQuickBookDate(e.target.value)}
+                  className="h-8 border-zinc-600 bg-zinc-900 text-zinc-100 text-sm [color-scheme:dark]"
+                />
+              </div>
+            </div>
+            <Button
+              size="sm"
+              disabled={!quickBookEmail || !quickBookDate}
+              onClick={() => {
+                const url = buildGCalUrl({
+                  businessName: currentLead.business_name || "",
+                  contactName: currentLead.owner_name || currentLead.first_name || "",
+                  email: quickBookEmail,
+                  demoDate: quickBookDate,
+                })
+                if (url) {
+                  window.open(url, "_blank")
+                  setQuickBookSent(true)
+                }
+              }}
+              className="gap-1.5 shrink-0 bg-green-600 hover:bg-green-700 text-white"
+            >
+              {quickBookSent ? (
+                <>
+                  <Check className="size-3.5" />
+                  Sent!
+                </>
+              ) : (
+                <>
+                  <ExternalLink className="size-3.5" />
+                  Send Invite
+                </>
+              )}
+            </Button>
+          </div>
+        )}
 
         {/* ── Call Controls + Disposition Bar (TOP — always visible) ────────── */}
         <div className="rounded-xl border bg-card px-4 py-3 shadow-sm space-y-3">
@@ -1804,6 +1982,8 @@ export function CallCockpit() {
         lead={callLeadRef.current || currentLead}
         outcome={leadModalOutcome}
         onComplete={handleLeadModalComplete}
+        prefillDemoDate={quickBookDate}
+        prefillEmail={quickBookEmail}
       />
     </>
   )

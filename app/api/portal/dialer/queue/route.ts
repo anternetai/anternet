@@ -5,6 +5,7 @@ import {
   getCurrentETHour,
   getTimezoneForHour,
   getScheduleForHour,
+  STATE_TIMEZONE_MAP,
   type DialerTimezone,
   type DialerLead,
 } from "@/lib/dialer/types"
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
   const admin = getAdmin()
   const url = new URL(req.url)
   const forceTimezone = url.searchParams.get("timezone") as DialerTimezone | null
+  const stateFilter = url.searchParams.get("state")?.toUpperCase() || null
   const limit = parseInt(url.searchParams.get("limit") || "500")
 
   const etHour = getCurrentETHour()
@@ -50,6 +52,9 @@ export async function GET(req: NextRequest) {
   if (currentTimezone) {
     callbackQuery = callbackQuery.eq("timezone", currentTimezone)
   }
+  if (stateFilter) {
+    callbackQuery = callbackQuery.eq("state", stateFilter)
+  }
 
   const { data: callbacks } = await callbackQuery
 
@@ -68,6 +73,9 @@ export async function GET(req: NextRequest) {
 
   if (currentTimezone) {
     queueQuery = queueQuery.eq("timezone", currentTimezone)
+  }
+  if (stateFilter) {
+    queueQuery = queueQuery.eq("state", stateFilter)
   }
 
   const { data: queueLeads } = await queueQuery
@@ -117,7 +125,37 @@ export async function GET(req: NextRequest) {
     breakdownByTimezone[tz] = count || 0
   }
 
-  // 7. Select best outbound number from pool + phone health
+  // 7. Breakdown by state for current timezone (powers state dropdown)
+  let breakdownByState: Record<string, number> | undefined
+  if (currentTimezone) {
+    // Get states that belong to this timezone
+    const statesInTz = Object.entries(STATE_TIMEZONE_MAP)
+      .filter(([, tz]) => tz === currentTimezone)
+      .map(([st]) => st)
+
+    if (statesInTz.length > 0) {
+      breakdownByState = {}
+      // Query all states in parallel instead of sequential awaits
+      const stateResults = await Promise.all(
+        statesInTz.map(async (st) => {
+          const { count } = await admin
+            .from("dialer_leads")
+            .select("*", { count: "exact", head: true })
+            .in("status", ["queued", "callback"])
+            .eq("state", st)
+            .lt("attempt_count", 5)
+          return { st, count: count || 0 }
+        })
+      )
+      for (const { st, count } of stateResults) {
+        if (count > 0) {
+          breakdownByState[st] = count
+        }
+      }
+    }
+  }
+
+  // 8. Select best outbound number from pool + phone health
   let selectedNumber: any = null
   let phonePoolHealth: { active: number; cooling: number; retired: number; warnings: string[] } = {
     active: 0, cooling: 0, retired: 0, warnings: [],
@@ -184,6 +222,7 @@ export async function GET(req: NextRequest) {
     currentHourBlock: schedule?.label || null,
     callbacksDue: (callbacksDueToday || []) as DialerLead[],
     breakdownByTimezone,
+    breakdownByState,
     selectedNumber: selectedNumber
       ? {
           id: selectedNumber.id,
