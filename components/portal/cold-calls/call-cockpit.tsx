@@ -308,6 +308,28 @@ function StatsBar({
   timeToday: string
 }) {
   const convRate = sessionDials > 0 ? ((sessionDemos / sessionDials) * 100).toFixed(1) : "0.0"
+
+  // Parse timeToday to total seconds for dials/hr pace computation.
+  // Handles "Xh YYm" (e.g. "1h 23m"), "M:SS" / "MM:SS", and "HH:MM:SS".
+  const totalSeconds = (() => {
+    const hourMin = timeToday.match(/^(\d+)h\s+(\d+)m$/)
+    if (hourMin) return parseInt(hourMin[1]) * 3600 + parseInt(hourMin[2]) * 60
+    const parts = timeToday.split(":")
+    if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1])
+    if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2])
+    return 0
+  })()
+
+  const dialPace = totalSeconds >= 60 ? sessionDials / (totalSeconds / 3600) : null
+  const paceColor =
+    dialPace === null
+      ? "text-muted-foreground"
+      : dialPace >= 20
+        ? "text-emerald-400"
+        : dialPace >= 10
+          ? "text-yellow-400"
+          : "text-muted-foreground"
+
   return (
     <div className="flex shrink-0 items-center gap-3 text-sm">
       <div className="flex items-center gap-1.5">
@@ -315,6 +337,15 @@ function StatsBar({
         <span className="font-bold tabular-nums">{sessionDials}</span>
         <span className="text-xs text-muted-foreground">dials</span>
       </div>
+      {dialPace !== null && (
+        <>
+          <Separator orientation="vertical" className="h-4" />
+          <div className="flex items-center gap-1.5">
+            <Zap className={`size-3.5 ${paceColor}`} />
+            <span className={`font-bold tabular-nums ${paceColor}`}>{dialPace.toFixed(1)}/hr</span>
+          </div>
+        </>
+      )}
       <Separator orientation="vertical" className="h-4" />
       <div className="flex items-center gap-1.5">
         <CalendarCheck className="size-3.5 text-purple-400" />

@@ -97,6 +97,8 @@ function usePendingCallbacksBadge(): number {
         .from("dialer_leads")
         .select("*", { count: "exact", head: true })
         .eq("status", "callback")
+        .not("next_call_at", "is", null)
+        .lte("next_call_at", new Date().toISOString())
       setCount(c ?? 0)
     }
 
@@ -247,7 +249,7 @@ function CollapsibleNavGroup({
                       />
                       <span>{item.label}</span>
                       {badges?.[item.href] ? (
-                        <span className="ml-auto text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-bold leading-none">
+                        <span className="ml-auto text-[10px] bg-red-500 text-white rounded-full px-1.5 py-0.5 font-bold leading-none" title="Overdue callbacks">
                           {badges[item.href]}
                         </span>
                       ) : null}
