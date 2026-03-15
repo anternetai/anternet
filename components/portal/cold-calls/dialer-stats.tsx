@@ -278,8 +278,44 @@ export function DialerStats() {
     )
   }
 
+  const today = data?.today ?? { dials: 0, contacts: 0, conversations: 0, demos: 0 }
+
   return (
     <div className="space-y-4 pt-2">
+      {/* Today's live stats strip */}
+      <Card className="bg-card border-orange-500/20">
+        <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-orange-500">
+            Today
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Phone className="size-3.5 text-orange-400" />
+            <span className="text-sm font-bold tabular-nums">{today.dials}</span>
+            <span className="text-xs text-muted-foreground">dials</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Users className="size-3.5 text-blue-400" />
+            <span className="text-sm font-bold tabular-nums">{today.contacts}</span>
+            <span className="text-xs text-muted-foreground">contacts</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <MessageSquare className="size-3.5 text-amber-400" />
+            <span className="text-sm font-bold tabular-nums">{today.conversations}</span>
+            <span className="text-xs text-muted-foreground">conversations</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <CalendarCheck className="size-3.5 text-emerald-400" />
+            <span className="text-sm font-bold tabular-nums">{today.demos}</span>
+            <span className="text-xs text-muted-foreground">demos booked</span>
+          </div>
+          {today.dials > 0 && (
+            <span className="ml-auto text-xs text-muted-foreground">
+              {((today.demos / today.dials) * 100).toFixed(1)}% close rate
+            </span>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Header row with days selector */}
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-muted-foreground">

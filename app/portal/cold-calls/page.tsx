@@ -2,10 +2,31 @@
 
 import { use, Suspense, useState, useEffect, lazy } from "react"
 import { redirect, useRouter, useSearchParams } from "next/navigation"
+import useSWR from "swr"
 import { PortalAuthContext } from "@/components/portal/portal-auth-provider"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Gauge, BarChart2, List, GitBranch } from "lucide-react"
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
+/** Returns count of overdue + today callbacks */
+function useCallbackUrgentCount() {
+  const { data } = useSWR<{ leads: Array<{ next_call_at: string | null }>; total: number }>(
+    `/api/portal/dialer/leads?status=callback&sort=next_call_at&order=asc&limit=100`,
+    fetcher,
+    { refreshInterval: 60_000 }
+  )
+  if (!data?.leads) return 0
+  const now = new Date()
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  return data.leads.filter((l) => {
+    if (!l.next_call_at) return false
+    const t = new Date(l.next_call_at)
+    return t < todayEnd // overdue + today
+  }).length
+}
 
 // ─── Tab key stored in localStorage ───────────────────────────────────────────
 
@@ -116,6 +137,7 @@ function TabFallback() {
 function ColdCallsContent() {
   const { user } = use(PortalAuthContext)
   const [activeTab, setActiveTab] = useActiveTab()
+  const callbackUrgent = useCallbackUrgentCount()
 
   if (!user) return null
   if (user.role !== "admin") {
@@ -159,6 +181,11 @@ function ColdCallsContent() {
           <TabsTrigger value="pipeline" className="gap-1.5">
             <GitBranch className="size-3.5" />
             Pipeline
+            {callbackUrgent > 0 && (
+              <Badge className="ml-0.5 h-4 min-w-4 rounded-full bg-amber-500/20 px-1 text-[9px] font-bold text-amber-400 border border-amber-500/30">
+                {callbackUrgent}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
