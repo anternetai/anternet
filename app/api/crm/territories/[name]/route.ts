@@ -191,22 +191,41 @@ export async function PATCH(
   const territoryName = decodeURIComponent(name)
 
   const body = await req.json()
-  const { center_lat, center_lng, zoom_level } = body as {
+  const { center_lat, center_lng, zoom_level, new_name, address } = body as {
     center_lat?: number
     center_lng?: number
     zoom_level?: number
+    new_name?: string
+    address?: string
   }
 
   const updates: Record<string, unknown> = {}
   if (center_lat !== undefined) updates.center_lat = center_lat
   if (center_lng !== undefined) updates.center_lng = center_lng
   if (zoom_level !== undefined) updates.zoom_level = zoom_level
+  if (new_name !== undefined) updates.name = new_name
+  if (address !== undefined) updates.address = address
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 })
   }
 
   const supabase = getSupabase()
+
+  // If renaming, also update territory_doors that reference the old name
+  if (new_name && new_name !== territoryName) {
+    const { error: doorsUpdateError } = await supabase
+      .from("territory_doors")
+      .update({ neighborhood: new_name })
+      .eq("neighborhood", territoryName)
+
+    if (doorsUpdateError) {
+      return NextResponse.json(
+        { error: `Failed to update doors: ${doorsUpdateError.message}` },
+        { status: 500 },
+      )
+    }
+  }
 
   const { data, error } = await supabase
     .from("door_knock_neighborhoods")
@@ -220,4 +239,43 @@ export async function PATCH(
   }
 
   return NextResponse.json({ territory: data })
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ name: string }> },
+) {
+  const authed = await verifyCrmAuth()
+  if (!authed) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { name } = await params
+  const territoryName = decodeURIComponent(name)
+  const supabase = getSupabase()
+
+  // Delete all doors in this territory first
+  const { error: doorsDeleteError } = await supabase
+    .from("territory_doors")
+    .delete()
+    .eq("neighborhood", territoryName)
+
+  if (doorsDeleteError) {
+    return NextResponse.json(
+      { error: `Failed to delete doors: ${doorsDeleteError.message}` },
+      { status: 500 },
+    )
+  }
+
+  // Delete the territory
+  const { error } = await supabase
+    .from("door_knock_neighborhoods")
+    .delete()
+    .eq("name", territoryName)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
 }

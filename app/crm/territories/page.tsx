@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { MapPin, Plus, X, ChevronRight } from "lucide-react"
+import { MapPin, Plus, X, ChevronRight, Pencil, Trash2, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -53,6 +53,11 @@ export default function CrmTerritoriesPage() {
   const [newAddress, setNewAddress] = useState("")
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const fetchTerritories = useCallback(async () => {
     try {
@@ -96,6 +101,53 @@ export default function CrmTerritoriesPage() {
       setError("Something went wrong")
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function handleRename(oldName: string) {
+    const trimmed = editName.trim()
+    if (!trimmed || trimmed === oldName) {
+      setEditingId(null)
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/crm/territories/${encodeURIComponent(oldName)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_name: trimmed }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        alert(data.error ?? "Failed to rename")
+        return
+      }
+      setEditingId(null)
+      fetchTerritories()
+    } catch {
+      alert("Something went wrong")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(name: string) {
+    setDeletingId(name)
+    try {
+      const res = await fetch(`/api/crm/territories/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error ?? "Failed to delete")
+        return
+      }
+      setConfirmDeleteId(null)
+      fetchTerritories()
+    } catch {
+      alert("Something went wrong")
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -174,53 +226,124 @@ export default function CrmTerritoriesPage() {
             const revenuePerDoor = kpis.total_doors > 0
               ? kpis.total_revenue / kpis.total_doors
               : 0
+            const isEditing = editingId === t.id
+            const isConfirmingDelete = confirmDeleteId === t.id
+            const isDeleting = deletingId === t.name
 
             return (
-              <Link
+              <div
                 key={t.id}
-                href={`/crm/territories/${encodeURIComponent(t.name)}`}
-                className="block rounded-xl border border-border bg-card hover:bg-muted/40 transition-colors active:scale-[0.99]"
+                className="rounded-xl border border-border bg-card transition-colors"
               >
                 <div className="p-4">
-                  {/* Name + chevron */}
+                  {/* Name + actions */}
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#3A6B4C]" />
-                      <span className="font-semibold text-foreground leading-tight">{t.name}</span>
-                    </div>
-                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    {isEditing ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#3A6B4C]" />
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleRename(t.name); if (e.key === "Escape") setEditingId(null) }}
+                          className="h-7 text-sm font-semibold"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => handleRename(t.name)}
+                          disabled={saving}
+                          className="p-1 rounded hover:bg-muted"
+                        >
+                          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 text-[#3A6B4C]" />}
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="p-1 rounded hover:bg-muted">
+                          <X className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Link
+                          href={`/crm/territories/${encodeURIComponent(t.name)}`}
+                          className="flex items-center gap-2 flex-1 min-w-0"
+                        >
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#3A6B4C]" />
+                          <span className="font-semibold text-foreground leading-tight truncate">{t.name}</span>
+                        </Link>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => { setEditingId(t.id); setEditName(t.name); setConfirmDeleteId(null) }}
+                            className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                            title="Rename"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => { setConfirmDeleteId(isConfirmingDelete ? null : t.id); setEditingId(null) }}
+                            className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-muted-foreground hover:text-red-600 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                          <Link href={`/crm/territories/${encodeURIComponent(t.name)}`}>
+                            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                          </Link>
+                        </div>
+                      </>
+                    )}
                   </div>
+
+                  {/* Delete confirmation */}
+                  {isConfirmingDelete && (
+                    <div className="mb-2 ml-6 flex items-center gap-2 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2">
+                      <p className="text-xs text-red-700 dark:text-red-300 flex-1">
+                        Delete &ldquo;{t.name}&rdquo; and all {kpis.total_doors} doors?
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 text-xs"
+                        onClick={() => handleDelete(t.name)}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Delete"}
+                      </Button>
+                      <button onClick={() => setConfirmDeleteId(null)} className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800/30">
+                        <X className="h-3.5 w-3.5 text-red-500" />
+                      </button>
+                    </div>
+                  )}
 
                   {/* Address */}
                   {t.address && (
                     <p className="mb-2 text-xs text-muted-foreground pl-6 truncate">{t.address}</p>
                   )}
 
-                  {/* KPI row */}
-                  <div className="grid grid-cols-4 gap-2 pl-6">
-                    <div className="text-center">
-                      <p className="text-base font-bold text-foreground">{kpis.total_doors}</p>
-                      <p className="text-[10px] text-muted-foreground leading-tight">doors</p>
+                  {/* KPI row — clickable to territory detail */}
+                  <Link href={`/crm/territories/${encodeURIComponent(t.name)}`}>
+                    <div className="grid grid-cols-4 gap-2 pl-6 hover:bg-muted/40 rounded-lg py-1 transition-colors">
+                      <div className="text-center">
+                        <p className="text-base font-bold text-foreground">{kpis.total_doors}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">doors</p>
+                      </div>
+                      <div className="text-center">
+                        <p className={cn("text-base font-bold", contactRateColor(kpis.contact_rate))}>
+                          {pct(kpis.contact_rate)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">contact</p>
+                      </div>
+                      <div className="text-center">
+                        <p className={cn("text-base font-bold", closeRateColor(kpis.close_rate))}>
+                          {pct(kpis.close_rate)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">close</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-base font-bold text-foreground">
+                          ${kpis.total_revenue > 0 ? kpis.total_revenue.toLocaleString() : "0"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">revenue</p>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <p className={cn("text-base font-bold", contactRateColor(kpis.contact_rate))}>
-                        {pct(kpis.contact_rate)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground leading-tight">contact</p>
-                    </div>
-                    <div className="text-center">
-                      <p className={cn("text-base font-bold", closeRateColor(kpis.close_rate))}>
-                        {pct(kpis.close_rate)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground leading-tight">close</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-base font-bold text-foreground">
-                        ${kpis.total_revenue > 0 ? kpis.total_revenue.toLocaleString() : "0"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground leading-tight">revenue</p>
-                    </div>
-                  </div>
+                  </Link>
 
                   {/* Footer row */}
                   <div className="mt-3 flex items-center gap-3 pl-6">
@@ -231,7 +354,7 @@ export default function CrmTerritoriesPage() {
                     )}
                   </div>
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>

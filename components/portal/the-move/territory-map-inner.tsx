@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
@@ -54,9 +54,11 @@ function MapReady({ onReady }: { onReady: (map: L.Map) => void }) {
 
 function MapCenterUpdater({ center, zoom }: { center: { lat: number; lng: number } | null; zoom?: number }) {
   const map = useMap()
+  const hasSetCenter = useRef(false)
   useEffect(() => {
-    if (center) {
+    if (center && !hasSetCenter.current) {
       map.setView([center.lat, center.lng], zoom ?? 16)
+      hasSetCenter.current = true
     }
   }, [center, zoom, map])
   return null
