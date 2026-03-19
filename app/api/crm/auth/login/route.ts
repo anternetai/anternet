@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     secure: true,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30, // 30 days
-    path: "/crm",
+    path: "/",
   })
   return res
 }
