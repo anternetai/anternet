@@ -183,13 +183,21 @@ export function LandingContent() {
       <header className="sticky top-0 z-50 bg-[#FEFCF7]/90 backdrop-blur-sm border-b border-[#3A6B4C]/10">
         <div className="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
           <img src="/images/squeegee/wordmark.png" alt="Dr. Squeegee" className="h-8" />
-          <a
-            href={`tel:${BRAND.phoneTel}`}
-            className="flex items-center gap-1.5 text-sm font-medium text-[#3A6B4C] hover:opacity-80 transition-opacity"
-          >
-            <Phone className="h-4 w-4" />
-            {BRAND.phone}
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="/blog"
+              className="hidden sm:inline text-sm font-medium text-[#3A6B4C] hover:opacity-80 transition-opacity"
+            >
+              Tips &amp; Guides
+            </a>
+            <a
+              href={`tel:${BRAND.phoneTel}`}
+              className="flex items-center gap-1.5 text-sm font-medium text-[#3A6B4C] hover:opacity-80 transition-opacity"
+            >
+              <Phone className="h-4 w-4" />
+              {BRAND.phone}
+            </a>
+          </div>
         </div>
       </header>
 

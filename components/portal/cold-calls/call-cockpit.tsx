@@ -54,6 +54,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import type { DialerLead, DialerOutcome, DialerQueueResponse } from "@/lib/dialer/types"
+import { DIALER_JUMP_TARGET_KEY } from "@/lib/dialer/constants"
 import type { AIAnalysisResult, RecordingState } from "@/lib/dialer/ai-types"
 import type { CallState } from "@/lib/dialer/types"
 import { LeadCreationModal, buildGCalUrl } from "./lead-creation-modal"
@@ -301,13 +302,18 @@ function LeadInfoCard({ lead }: { lead: DialerLead }) {
 function StatsBar({
   sessionDials,
   sessionDemos,
+  sessionConversations,
   timeToday,
 }: {
   sessionDials: number
   sessionDemos: number
+  sessionConversations: number
   timeToday: string
 }) {
-  const convRate = sessionDials > 0 ? ((sessionDemos / sessionDials) * 100).toFixed(1) : "0.0"
+  // Contact rate: % of dials that reached a live person (conversation OR demo)
+  const contactRate = sessionDials > 0 ? ((sessionConversations / sessionDials) * 100).toFixed(1) : "0.0"
+  // Demo rate: % of conversations that became demos
+  const demoRate = sessionConversations > 0 ? ((sessionDemos / sessionConversations) * 100).toFixed(1) : "0.0"
 
   // Parse timeToday to total seconds for dials/hr pace computation.
   // Handles "Xh YYm" (e.g. "1h 23m"), "M:SS" / "MM:SS", and "HH:MM:SS".
@@ -332,11 +338,13 @@ function StatsBar({
 
   return (
     <div className="flex shrink-0 items-center gap-3 text-sm">
+      {/* Dials */}
       <div className="flex items-center gap-1.5">
         <PhoneCall className="size-3.5 text-orange-400" />
         <span className="font-bold tabular-nums">{sessionDials}</span>
         <span className="text-xs text-muted-foreground">dials</span>
       </div>
+      {/* Dial pace */}
       {dialPace !== null && (
         <>
           <Separator orientation="vertical" className="h-4" />
@@ -346,17 +354,25 @@ function StatsBar({
           </div>
         </>
       )}
+      {/* Conversations + contact rate */}
       <Separator orientation="vertical" className="h-4" />
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5" title={`Contact rate: ${contactRate}% of dials reached a live person`}>
+        <MessageSquare className="size-3.5 text-blue-400" />
+        <span className="font-bold tabular-nums">{sessionConversations}</span>
+        <span className="text-xs text-muted-foreground">
+          {sessionDials > 0 ? `(${contactRate}%)` : "contacts"}
+        </span>
+      </div>
+      {/* Demos + demo rate */}
+      <Separator orientation="vertical" className="h-4" />
+      <div className="flex items-center gap-1.5" title={`Demo rate: ${demoRate}% of conversations booked`}>
         <CalendarCheck className="size-3.5 text-purple-400" />
         <span className="font-bold tabular-nums">{sessionDemos}</span>
-        <span className="text-xs text-muted-foreground">demos</span>
+        {sessionConversations > 0 && (
+          <span className="text-xs text-muted-foreground">({demoRate}%)</span>
+        )}
       </div>
-      <Separator orientation="vertical" className="h-4" />
-      <div className="flex items-center gap-1.5">
-        <TrendingUp className="size-3.5 text-emerald-400" />
-        <span className="font-bold tabular-nums">{convRate}%</span>
-      </div>
+      {/* Session time */}
       <Separator orientation="vertical" className="h-4" />
       <div className="flex items-center gap-1.5">
         <Clock className="size-3.5 text-blue-400" />
@@ -654,6 +670,7 @@ export function CallCockpit() {
   const [showDemoDatePicker, setShowDemoDatePicker] = useState(false)
   const [sessionDials, setSessionDials] = useState(0)
   const [sessionDemos, setSessionDemos] = useState(0)
+  const [sessionConversations, setSessionConversations] = useState(0)
   const [powerMode, setPowerMode] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [autoDialActive, setAutoDialActive] = useState(false)
@@ -854,6 +871,21 @@ export function CallCockpit() {
   // Restore queue position from localStorage on first load
   useEffect(() => {
     if (!positionRestored && queue?.currentTimezone && leads.length > 0) {
+      // Priority 0: Jump to a specific lead requested by the callback pipeline "Call Now"
+      try {
+        const jumpId = localStorage.getItem(DIALER_JUMP_TARGET_KEY)
+        if (jumpId) {
+          localStorage.removeItem(DIALER_JUMP_TARGET_KEY)
+          const jumpIdx = leads.findIndex((l) => l.id === jumpId)
+          if (jumpIdx >= 0) {
+            setCurrentIndex(jumpIdx)
+            setTrackedTimezone(queue.currentTimezone)
+            setPositionRestored(true)
+            return
+          }
+        }
+      } catch {}
+      // Default: restore last saved position
       const saved = loadQueuePosition(queue.currentTimezone, leads.length, stateFilter)
       if (saved > 0) setCurrentIndex(saved)
       setTrackedTimezone(queue.currentTimezone)
@@ -1136,6 +1168,8 @@ export function CallCockpit() {
 
         setSessionDials((c) => c + 1)
         if (outcome === "demo_booked") setSessionDemos((c) => c + 1)
+        // Both "conversation" and "demo_booked" mean we reached a live person
+        setSessionConversations((c) => c + 1)
 
         // Submit disposition with modal data
         await submitDisposition(leadSnap, outcome, data.notes, data.demoDate, data.email)
@@ -1306,7 +1340,7 @@ export function CallCockpit() {
       />
 
       {/* Stats */}
-      <StatsBar sessionDials={sessionDials} sessionDemos={sessionDemos} timeToday={sessionTime} />
+      <StatsBar sessionDials={sessionDials} sessionDemos={sessionDemos} sessionConversations={sessionConversations} timeToday={sessionTime} />
 
       {/* Outbound number + pool health */}
       {queue?.selectedNumber && (
@@ -1831,7 +1865,7 @@ export function CallCockpit() {
         <div className="rounded-xl border bg-card p-3 shadow-sm">
           {currentLead && <LeadInfoCard lead={currentLead} />}
           <div className="mt-3 flex items-center justify-between">
-            <StatsBar sessionDials={sessionDials} sessionDemos={sessionDemos} timeToday={sessionTime} />
+            <StatsBar sessionDials={sessionDials} sessionDemos={sessionDemos} sessionConversations={sessionConversations} timeToday={sessionTime} />
             <Suspense fallback={null}>
               <CallTimerComp duration={0} callState="idle" />
             </Suspense>

@@ -49,6 +49,12 @@ export function Nav() {
           >
             Pricing
           </a>
+          <a
+            href="/blog"
+            className="text-sm text-zinc-400 hover:text-white transition-colors"
+          >
+            Resources
+          </a>
         </div>
 
         <Link

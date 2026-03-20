@@ -8,6 +8,7 @@ import { KpiCards } from "@/components/portal/kpi-cards"
 import { PipelineFunnel } from "@/components/portal/pipeline-funnel"
 import { DateRangeFilter } from "@/components/portal/date-range-filter"
 import { UpcomingDemoBanner } from "@/components/portal/upcoming-demo-banner"
+import { ColdCallPulse } from "@/components/portal/cold-call-pulse"
 import { Skeleton } from "@/components/ui/skeleton"
 
 function getGreeting(firstName: string) {
@@ -42,6 +43,7 @@ function DashboardContent() {
   return (
     <div className="space-y-6">
       <UpcomingDemoBanner />
+      <ColdCallPulse />
       <div className="flex flex-col gap-4 rounded-xl p-4 -mx-4 sm:flex-row sm:items-end sm:justify-between dark:bg-gradient-to-r dark:from-orange-500/[0.06] dark:via-transparent dark:to-transparent">
         <div>
           <h1 className="text-2xl font-bold" style={{ textWrap: "balance" }}>

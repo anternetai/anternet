@@ -3,6 +3,27 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
+      // drsqueegeeclt.com/blog → /squeegee-blog
+      {
+        source: "/blog",
+        has: [{ type: "host", value: "drsqueegeeclt.com" }],
+        destination: "/squeegee-blog",
+      },
+      {
+        source: "/blog/:slug",
+        has: [{ type: "host", value: "drsqueegeeclt.com" }],
+        destination: "/squeegee-blog/:slug",
+      },
+      {
+        source: "/blog",
+        has: [{ type: "host", value: "www.drsqueegeeclt.com" }],
+        destination: "/squeegee-blog",
+      },
+      {
+        source: "/blog/:slug",
+        has: [{ type: "host", value: "www.drsqueegeeclt.com" }],
+        destination: "/squeegee-blog/:slug",
+      },
       // drsqueegeeclt.com/crm → /crm (same path, no conflict)
       // drsqueegeeclt.com/portal → /crm (legacy alias)
       {

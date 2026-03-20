@@ -13,6 +13,7 @@ import {
   CalendarDays,
   CalendarClock,
   Inbox,
+  FastForward,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import type { DialerLead } from "@/lib/dialer/types"
 import { LeadDetailSheet } from "./lead-detail-sheet"
+import { DIALER_JUMP_TARGET_KEY } from "@/lib/dialer/constants"
 
 // ─── Fetcher ───────────────────────────────────────────────────────────────────
 
@@ -104,6 +106,48 @@ function formatCallbackTime(dateStr: string | null) {
   })
 }
 
+/** Human-readable relative countdown: "in 2h 15m", "5m ago", "now" */
+function formatRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return ""
+  const diff = new Date(dateStr).getTime() - Date.now()
+  const abs = Math.abs(diff)
+  const mins = Math.floor(abs / 60_000)
+  const hours = Math.floor(abs / 3_600_000)
+  const days = Math.floor(abs / 86_400_000)
+
+  if (abs < 60_000) return diff < 0 ? "just now" : "< 1m"
+  if (diff < 0) {
+    if (mins < 60) return `${mins}m ago`
+    if (hours < 24) return `${hours}h ago`
+    return `${days}d ago`
+  }
+  if (mins < 60) return `in ${mins}m`
+  if (hours < 24) return `in ${hours}h ${mins % 60 > 0 ? `${mins % 60}m` : ""}`.trimEnd()
+  return `in ${days}d`
+}
+
+const OUTCOME_LABEL: Record<string, string> = {
+  conversation: "Talked",
+  gatekeeper: "Gatekeeper",
+  voicemail: "VM left",
+  no_answer: "No answer",
+  callback: "Callback",
+  demo_booked: "Demo set",
+  not_interested: "Not interested",
+  wrong_number: "Wrong #",
+}
+
+const OUTCOME_BADGE: Record<string, string> = {
+  conversation: "bg-blue-500/15 text-blue-400 border-blue-500/25",
+  gatekeeper: "bg-purple-500/15 text-purple-400 border-purple-500/25",
+  voicemail: "bg-slate-500/15 text-slate-400 border-slate-500/25",
+  no_answer: "bg-muted text-muted-foreground border-border",
+  callback: "bg-amber-500/15 text-amber-400 border-amber-500/25",
+  demo_booked: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
+  not_interested: "bg-red-500/15 text-red-400 border-red-500/25",
+  wrong_number: "bg-orange-500/15 text-orange-400 border-orange-500/25",
+}
+
 // ─── Lead card ─────────────────────────────────────────────────────────────────
 
 function CallbackLeadCard({
@@ -127,6 +171,7 @@ function CallbackLeadCard({
     >
       {/* Left: business info */}
       <div className="flex-1 min-w-0">
+        {/* Row 1: name + badges */}
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium truncate">
             {lead.business_name ?? "Unknown Business"}
@@ -136,7 +181,19 @@ function CallbackLeadCard({
               Overdue
             </Badge>
           )}
+          {lead.last_outcome && lead.last_outcome !== "callback" && (
+            <Badge
+              className={cn(
+                "text-[9px] px-1.5 py-0 border",
+                OUTCOME_BADGE[lead.last_outcome] ?? "bg-muted text-muted-foreground border-border"
+              )}
+            >
+              {OUTCOME_LABEL[lead.last_outcome] ?? lead.last_outcome.replace(/_/g, " ")}
+            </Badge>
+          )}
         </div>
+
+        {/* Row 2: contact details + time */}
         <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
           {(lead.owner_name ?? lead.first_name) && (
             <span>{lead.owner_name ?? lead.first_name}</span>
@@ -148,10 +205,27 @@ function CallbackLeadCard({
             <Clock className="size-3" />
             {formatCallbackTime(lead.next_call_at)}
           </span>
+          {lead.next_call_at && (
+            <span
+              className={cn(
+                "font-medium tabular-nums",
+                isOverdue ? "text-red-400" : "text-orange-400"
+              )}
+            >
+              {formatRelativeTime(lead.next_call_at)}
+            </span>
+          )}
           <span className="text-muted-foreground/60">
             {lead.attempt_count} attempt{lead.attempt_count !== 1 ? "s" : ""}
           </span>
         </div>
+
+        {/* Row 3: notes preview (if any) */}
+        {lead.notes && (
+          <p className="mt-1 text-[11px] text-muted-foreground/70 italic truncate max-w-[400px]">
+            &ldquo;{lead.notes}&rdquo;
+          </p>
+        )}
       </div>
 
       {/* Right: call now button */}
@@ -164,8 +238,9 @@ function CallbackLeadCard({
         )}
         onClick={(e) => {
           e.stopPropagation()
-          // Navigate to cockpit — in a real app we'd pass the lead ID
-          window.location.href = "/portal/cold-calls"
+          // Store this lead as the jump target so the cockpit opens directly on it
+          try { localStorage.setItem(DIALER_JUMP_TARGET_KEY, lead.id) } catch {}
+          window.location.href = "/portal/cold-calls?tab=cockpit"
         }}
       >
         <Gauge className="size-3.5" />
@@ -309,6 +384,7 @@ function PipelineSkeleton() {
 export function CallbackPipeline() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [rescheduling, setRescheduling] = useState(false)
 
   const { data, isLoading, error, mutate } = useSWR<{ leads: DialerLead[]; total: number }>(
     `/api/portal/dialer/leads?status=callback&sort=next_call_at&order=asc&limit=100`,
@@ -323,10 +399,29 @@ export function CallbackPipeline() {
 
   const totalCallbacks = data?.total ?? 0
   const overdueCount = grouped?.overdue.length ?? 0
+  const todayCount = grouped?.today.length ?? 0
+  const upcomingCount =
+    (grouped?.tomorrow.length ?? 0) +
+    (grouped?.this_week.length ?? 0) +
+    (grouped?.next_week.length ?? 0) +
+    (grouped?.later.length ?? 0)
 
   function openDetail(id: string) {
     setSelectedLeadId(id)
     setSheetOpen(true)
+  }
+
+  async function rescheduleOverdue() {
+    if (rescheduling) return
+    setRescheduling(true)
+    try {
+      const res = await fetch("/api/portal/dialer/leads/reschedule-overdue", { method: "POST" })
+      if (res.ok) {
+        await mutate()
+      }
+    } finally {
+      setRescheduling(false)
+    }
   }
 
   if (isLoading) return <PipelineSkeleton />
@@ -357,18 +452,45 @@ export function CallbackPipeline() {
     <div className="space-y-4 pt-2">
       {/* Summary bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">
               {totalCallbacks.toLocaleString()}
             </span>{" "}
-            callback{totalCallbacks !== 1 ? "s" : ""} scheduled
+            callback{totalCallbacks !== 1 ? "s" : ""}
           </p>
+          {/* Breakdown pill strip */}
+          <div className="flex items-center gap-1.5">
+            {overdueCount > 0 && (
+              <Badge className="gap-1 bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] px-2">
+                <AlertTriangle className="size-3" />
+                {overdueCount} overdue
+              </Badge>
+            )}
+            {todayCount > 0 && (
+              <Badge className="gap-1 bg-orange-500/15 text-orange-400 border border-orange-500/25 text-[10px] px-2">
+                <Clock className="size-3" />
+                {todayCount} today
+              </Badge>
+            )}
+            {upcomingCount > 0 && (
+              <Badge className="gap-1 bg-muted text-muted-foreground border text-[10px] px-2">
+                <CalendarDays className="size-3" />
+                {upcomingCount} upcoming
+              </Badge>
+            )}
+          </div>
           {overdueCount > 0 && (
-            <Badge className="gap-1 bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] px-2">
-              <AlertTriangle className="size-3" />
-              {overdueCount} overdue
-            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={rescheduleOverdue}
+              disabled={rescheduling}
+              className="h-7 gap-1.5 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs px-2.5"
+            >
+              <FastForward className="size-3" />
+              {rescheduling ? "Rescheduling…" : "Reschedule to today"}
+            </Button>
           )}
         </div>
         <Button variant="outline" size="sm" onClick={() => mutate()}>

@@ -310,7 +310,9 @@ export function DialerStats() {
           </div>
           {today.dials > 0 && (
             <span className="ml-auto text-xs text-muted-foreground">
-              {((today.demos / today.dials) * 100).toFixed(1)}% close rate
+              {today.demos > 0
+                ? `${((today.demos / today.dials) * 100).toFixed(1)}% close rate`
+                : `${today.dials} dial${today.dials !== 1 ? "s" : ""} — no demos yet`}
             </span>
           )}
         </CardContent>
