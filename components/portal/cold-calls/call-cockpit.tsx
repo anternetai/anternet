@@ -372,6 +372,16 @@ function StatsBar({
           <span className="text-xs text-muted-foreground">({demoRate}%)</span>
         )}
       </div>
+      {/* Revenue projection */}
+      {sessionDemos > 0 && (
+        <>
+          <Separator orientation="vertical" className="h-4" />
+          <div className="flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5" title="Projected revenue at $200 per showed appointment">
+            <span className="text-xs font-semibold text-emerald-400">${(sessionDemos * 200).toLocaleString()}</span>
+            <span className="text-[10px] text-emerald-400/60">rev</span>
+          </div>
+        </>
+      )}
       {/* Session time */}
       <Separator orientation="vertical" className="h-4" />
       <div className="flex items-center gap-1.5">
