@@ -62,105 +62,123 @@ export function BatchMenu() {
   }
 
   return (
-    <section id="batch" className="px-6 py-16 md:py-24 max-w-xl mx-auto">
-      {/* Batch header */}
-      <div className="text-center mb-12">
-        <p
-          className="text-sm tracking-widest uppercase mb-2"
-          style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
-        >
-          This Week
-        </p>
-        <h2
-          className="text-3xl md:text-4xl font-bold"
-          style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-gold)" }}
-        >
-          {BATCH.name} — {BATCH.date}
-        </h2>
-        <div className="flex justify-center mt-3">
-          <BeeDecoration className="w-6 h-6" />
+    <section id="batch" className="relative px-6 py-20 md:py-28">
+      {/* Decorative bee */}
+      <div className="absolute top-10 left-6 md:left-20 opacity-50">
+        <BeeDecoration className="w-6 h-6" />
+      </div>
+
+      <div className="max-w-lg mx-auto">
+        {/* Batch header */}
+        <div className="text-center mb-14">
+          <p
+            className="text-xs tracking-[0.25em] uppercase mb-3"
+            style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
+          >
+            This Week
+          </p>
+          <h2
+            className="text-3xl md:text-4xl font-bold mb-1"
+            style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
+          >
+            {BATCH.name}
+          </h2>
+          <p
+            className="text-lg"
+            style={{ fontFamily: "var(--font-bb-accent)", color: "var(--bb-gold)", fontSize: "1.3rem" }}
+          >
+            {BATCH.date}
+          </p>
         </div>
-      </div>
 
-      {/* Menu items */}
-      <div className="space-y-6">
-        {BATCH.loaves.map((loaf) => {
-          const badge = statusBadge[loaf.status]
-          return (
-            <div key={loaf.name} className="group flex gap-4 items-start">
-              {/* Loaf photo */}
-              <div className="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden">
-                <Image
-                  src={loaf.image}
-                  alt={loaf.name}
-                  width={160}
-                  height={160}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </div>
+        {/* Loaf cards — each one gets its own breathing space */}
+        <div className="space-y-8">
+          {BATCH.loaves.map((loaf) => {
+            const badge = statusBadge[loaf.status]
+            return (
+              <div
+                key={loaf.name}
+                className="rounded-2xl p-5 transition-all duration-200"
+                style={{ backgroundColor: "rgba(255,255,255,0.6)" }}
+              >
+                <div className="flex gap-4">
+                  {/* Loaf photo */}
+                  <div className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden">
+                    <Image
+                      src={loaf.image}
+                      alt={loaf.name}
+                      width={192}
+                      height={192}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
 
-              <div className="flex-1 min-w-0">
-                {/* Name + leader + price */}
-                <div className="flex items-baseline">
-                  <h3
-                    className="text-lg font-semibold whitespace-nowrap"
-                    style={{ fontFamily: "var(--font-bb-heading)" }}
-                  >
-                    {loaf.name}
-                  </h3>
-                  <span className="menu-leader" />
-                  <span
-                    className="text-lg font-bold whitespace-nowrap"
-                    style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-gold)" }}
-                  >
-                    {loaf.price}
-                  </span>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    {/* Name + price */}
+                    <div className="flex items-baseline justify-between mb-1">
+                      <h3
+                        className="text-lg font-bold"
+                        style={{ fontFamily: "var(--font-bb-heading)" }}
+                      >
+                        {loaf.name}
+                      </h3>
+                      <span
+                        className="text-lg font-bold ml-2"
+                        style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-gold)" }}
+                      >
+                        {loaf.price}
+                      </span>
+                    </div>
 
-                {/* Description */}
-                <p
-                  className="text-sm mt-1"
-                  style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
-                >
-                  {loaf.description}
-                </p>
+                    {/* Dotted line separator */}
+                    <div className="menu-leader mb-2" style={{ margin: 0 }} />
 
-                {/* Status + order button */}
-                <div className="flex items-center gap-3 mt-2">
-                  <span
-                    className={`text-xs font-medium px-3 py-1 rounded-full ${badge.className || ""}`}
-                    style={{ backgroundColor: badge.bg, color: badge.text }}
-                  >
-                    {badge.label}
-                  </span>
-                  {loaf.status !== "sold_out" && (
-                    <button
-                      onClick={() => handleOrderClick(loaf.name)}
-                      className="text-xs font-semibold px-4 py-1.5 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                      style={{
-                        fontFamily: "var(--font-bb-body)",
-                        backgroundColor: "var(--bb-navy)",
-                        color: "var(--bb-cream)",
-                      }}
+                    {/* Description */}
+                    <p
+                      className="text-sm mb-3"
+                      style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
                     >
-                      Order This Loaf
-                    </button>
-                  )}
+                      {loaf.description}
+                    </p>
+
+                    {/* Status + order */}
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-xs font-medium px-3 py-1 rounded-full ${badge.className || ""}`}
+                        style={{ backgroundColor: badge.bg, color: badge.text }}
+                      >
+                        {badge.label}
+                      </span>
+                      {loaf.status !== "sold_out" && (
+                        <button
+                          onClick={() => handleOrderClick(loaf.name)}
+                          className="text-xs font-semibold px-4 py-1.5 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+                          style={{
+                            fontFamily: "var(--font-bb-body)",
+                            backgroundColor: "var(--bb-navy)",
+                            color: "var(--bb-cream)",
+                          }}
+                        >
+                          Order This Loaf
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
 
-      {/* Preslice note */}
-      <p
-        className="text-center text-sm mt-10 italic"
-        style={{ fontFamily: "var(--font-bb-accent)", color: "var(--bb-text-muted)", fontSize: "1rem" }}
-      >
-        * Preslice available upon request
-      </p>
+        {/* Preslice note */}
+        <p
+          className="text-center mt-10 italic"
+          style={{ fontFamily: "var(--font-bb-accent)", color: "var(--bb-text-muted)", fontSize: "1rem" }}
+        >
+          * Preslice available upon request
+        </p>
+      </div>
 
       {/* Order form modal */}
       {showOrder && (

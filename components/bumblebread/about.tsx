@@ -3,19 +3,32 @@ import { BeeDecoration } from "./bee-decoration"
 
 export function About() {
   return (
-    <section className="px-6 py-16 md:py-24" style={{ backgroundColor: "var(--bb-cream-dark)" }}>
-      <div className="max-w-xl mx-auto text-center">
-        <BeeDecoration className="w-8 h-8 mx-auto mb-6" />
+    <section className="relative px-6 py-20 md:py-28">
+      {/* Decorative bees */}
+      <div className="absolute top-16 right-6 md:right-16 opacity-50">
+        <BeeDecoration className="w-7 h-7" />
+      </div>
+      <div className="absolute bottom-20 left-8 md:left-20 opacity-30">
+        <BeeDecoration className="w-5 h-5" />
+      </div>
 
-        <h2
-          className="text-2xl md:text-3xl font-bold mb-6"
-          style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
-        >
-          About The Club
-        </h2>
+      <div className="max-w-lg mx-auto">
+        <div className="text-center mb-10">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <span className="h-px w-8" style={{ backgroundColor: "var(--bb-gold)" }} />
+            <BeeDecoration className="w-5 h-5" />
+            <span className="h-px w-8" style={{ backgroundColor: "var(--bb-gold)" }} />
+          </div>
+          <h2
+            className="text-2xl md:text-3xl font-bold"
+            style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
+          >
+            About The Club
+          </h2>
+        </div>
 
         {/* Baking photo */}
-        <div className="rounded-2xl overflow-hidden mb-8 max-w-sm mx-auto">
+        <div className="rounded-2xl overflow-hidden mb-10 max-w-sm mx-auto">
           <Image
             src="/bumblebread/about-baking.webp"
             alt="Hands shaping sourdough bread dough"
@@ -27,7 +40,7 @@ export function About() {
         </div>
 
         <div
-          className="space-y-4 text-base leading-relaxed"
+          className="space-y-5 text-base leading-relaxed text-center"
           style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
         >
           <p>
@@ -45,7 +58,7 @@ export function About() {
         </div>
 
         <p
-          className="mt-8 text-lg italic"
+          className="mt-10 text-center italic"
           style={{ fontFamily: "var(--font-bb-accent)", color: "var(--bb-gold)", fontSize: "1.25rem" }}
         >
           A microbakery born from love of sourdough and community

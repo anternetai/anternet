@@ -1,4 +1,5 @@
 import Image from "next/image"
+import { BeeDecoration } from "./bee-decoration"
 
 const tips = [
   {
@@ -21,61 +22,70 @@ const tips = [
 
 export function FreshnessGuide() {
   return (
-    <section className="px-6 py-16 md:py-24 max-w-xl mx-auto">
-      <h2
-        className="text-2xl md:text-3xl font-bold text-center mb-4"
-        style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
-      >
-        Keeping Your Sourdough Fresh
-      </h2>
-      <p
-        className="text-center text-sm mb-8"
-        style={{ fontFamily: "var(--font-bb-accent)", color: "var(--bb-text-muted)", fontSize: "1rem" }}
-      >
-        Make every slice taste like it just came out of the oven
-      </p>
-
-      {/* Freshness photo */}
-      <div className="rounded-2xl overflow-hidden mb-10">
-        <Image
-          src="/bumblebread/freshness-guide.webp"
-          alt="Sliced sourdough bread on a cutting board"
-          width={600}
-          height={400}
-          className="w-full h-auto"
-          loading="lazy"
-        />
+    <section className="relative px-6 py-20 md:py-28" style={{ backgroundColor: "var(--bb-cream-dark)" }}>
+      {/* Decorative bee */}
+      <div className="absolute top-10 left-8 md:left-20 opacity-40">
+        <BeeDecoration className="w-6 h-6" />
       </div>
 
-      <div className="space-y-6">
-        {tips.map((tip, i) => (
-          <div key={i} className="flex items-start gap-4">
-            <div
-              className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
-              style={{
-                fontFamily: "var(--font-bb-heading)",
-                backgroundColor: "var(--bb-gold)",
-                color: "var(--bb-navy)",
-              }}
-            >
-              {i + 1}
-            </div>
-            <div>
-              <h3
-                className="font-bold mb-0.5"
-                style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
+      <div className="max-w-lg mx-auto">
+        <div className="text-center mb-8">
+          <h2
+            className="text-2xl md:text-3xl font-bold mb-3"
+            style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
+          >
+            Keeping Your Sourdough Fresh
+          </h2>
+          <p
+            className="italic"
+            style={{ fontFamily: "var(--font-bb-accent)", color: "var(--bb-text-muted)", fontSize: "1rem" }}
+          >
+            Make every slice taste like it just came out of the oven
+          </p>
+        </div>
+
+        {/* Freshness photo */}
+        <div className="rounded-2xl overflow-hidden mb-12">
+          <Image
+            src="/bumblebread/freshness-guide.webp"
+            alt="Sliced sourdough bread on a cutting board"
+            width={600}
+            height={400}
+            className="w-full h-auto"
+            loading="lazy"
+          />
+        </div>
+
+        <div className="space-y-8">
+          {tips.map((tip, i) => (
+            <div key={i} className="flex items-start gap-4">
+              <div
+                className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+                style={{
+                  fontFamily: "var(--font-bb-heading)",
+                  backgroundColor: "var(--bb-gold)",
+                  color: "var(--bb-navy)",
+                }}
               >
-                {tip.step}
-              </h3>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
-              >
-                {tip.detail}
-              </p>
+                {i + 1}
+              </div>
+              <div className="pt-1">
+                <h3
+                  className="font-bold mb-1"
+                  style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
+                >
+                  {tip.step}
+                </h3>
+                <p
+                  className="text-sm leading-relaxed"
+                  style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
+                >
+                  {tip.detail}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   )

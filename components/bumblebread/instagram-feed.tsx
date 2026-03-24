@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from "react"
 import { BeeDecoration } from "./bee-decoration"
 
-// Add post shortcodes here as Bianca posts new batches
-// To find a shortcode: open any Instagram post → the URL is instagram.com/p/SHORTCODE/
+// Real Instagram post URLs — replace these as needed
+// To switch to auto-updating: sign up at behold.so, connect @bumblebreadclub,
+// get a feed ID, and swap this component for <BeholdWidget feedId="..." />
 const FEATURED_POSTS = [
-  "DGuCFiFRWvN", // Batch #1 menu post
-  "DGrNWKXxJaC", // Welcome / logo reveal post
+  "DVhPpvZAADf", // Reel (video)
+  "DVeO5UUD3-J", // Post
+  "DVkGq2biRUp", // Friends + sourdough + cocktails
+  "DVytHRtjqC1", // Post
 ]
 
 export function InstagramFeed() {
@@ -15,12 +18,10 @@ export function InstagramFeed() {
   const sectionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Load Instagram embed script once the section is near viewport
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !loaded) {
           setLoaded(true)
-          // Load Instagram embed.js
           if (!document.getElementById("instagram-embed-script")) {
             const script = document.createElement("script")
             script.id = "instagram-embed-script"
@@ -45,34 +46,22 @@ export function InstagramFeed() {
     return () => observer.disconnect()
   }, [loaded])
 
-  // Re-process embeds when Instagram script loads
-  useEffect(() => {
-    if (loaded && window.instgrm) {
-      window.instgrm.Embeds.process()
-    }
-  }, [loaded])
-
   return (
     <section
       ref={sectionRef}
-      className="px-6 py-16 md:py-24"
+      className="relative px-6 py-20 md:py-28"
       style={{ backgroundColor: "var(--bb-cream-dark)" }}
     >
+      {/* Decorative bee */}
+      <div className="absolute top-8 right-8 md:right-20 opacity-50">
+        <BeeDecoration className="w-7 h-7" />
+      </div>
+
       <div className="max-w-xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <BeeDecoration className="w-5 h-5" />
-            <p
-              className="text-sm tracking-widest uppercase"
-              style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
-            >
-              Fresh from the gram
-            </p>
-            <BeeDecoration className="w-5 h-5" />
-          </div>
+        <div className="text-center mb-12">
           <h2
-            className="text-2xl md:text-3xl font-bold mb-3"
+            className="text-2xl md:text-3xl font-bold mb-2"
             style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
           >
             @bumblebreadclub
@@ -109,7 +98,6 @@ export function InstagramFeed() {
             ))}
           </div>
         ) : (
-          /* Placeholder while loading */
           <div className="space-y-6">
             {FEATURED_POSTS.map((_, i) => (
               <div
@@ -122,7 +110,7 @@ export function InstagramFeed() {
         )}
 
         {/* Follow CTA */}
-        <div className="text-center mt-10">
+        <div className="text-center mt-12">
           <a
             href="https://instagram.com/bumblebreadclub"
             target="_blank"

@@ -1,7 +1,11 @@
-interface Window {
-  instgrm?: {
-    Embeds: {
-      process(): void
+export {}
+
+declare global {
+  interface Window {
+    instgrm?: {
+      Embeds: {
+        process(): void
+      }
     }
   }
 }
