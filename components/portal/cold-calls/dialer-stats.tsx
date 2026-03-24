@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   TrendingUp,
   RefreshCw,
+  PhoneCall,
 } from "lucide-react"
 import {
   Area,
@@ -291,6 +292,12 @@ export function DialerStats() {
 
   const today = data?.today ?? { dials: 0, contacts: 0, conversations: 0, demos: 0 }
 
+  // Callback count from lead status summary (always-total, not date-filtered)
+  const callbackCount = useMemo(() => {
+    const row = data?.leadStatusSummary?.find((r) => r.status === "callback")
+    return row?.count ?? 0
+  }, [data?.leadStatusSummary])
+
   return (
     <div className="space-y-4 pt-2">
       {/* Today's live stats strip */}
@@ -326,6 +333,17 @@ export function DialerStats() {
               </span>
               <span className="text-[10px] text-emerald-400/60">projected</span>
             </div>
+          )}
+          {/* Callbacks pending pill — deep-links to pipeline tab */}
+          {callbackCount > 0 && (
+            <a
+              href="/portal/cold-calls?tab=pipeline"
+              className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-400 transition-colors hover:bg-amber-500/20"
+              title="Go to callback pipeline"
+            >
+              <PhoneCall className="size-3" />
+              {callbackCount} callback{callbackCount !== 1 ? "s" : ""} pending
+            </a>
           )}
           {today.dials > 0 && (
             <span className="ml-auto text-xs text-muted-foreground">
