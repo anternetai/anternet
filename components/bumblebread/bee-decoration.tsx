@@ -1,7 +1,8 @@
-export function BeeDecoration({ className = "" }: { className?: string }) {
+export function BeeDecoration({ className = "", variant = 1 }: { className?: string; variant?: 1 | 2 | 3 }) {
+  const animClass = `bee-float-${variant}`
   return (
     <svg
-      className={`bee-animate ${className}`}
+      className={`${animClass} ${className}`}
       width="32"
       height="32"
       viewBox="0 0 32 32"

@@ -39,17 +39,11 @@ export function HowItWorks() {
     <section className="relative px-6 py-20 md:py-28">
       {/* Decorative bee */}
       <div className="absolute bottom-12 right-6 md:right-16 opacity-40">
-        <BeeDecoration className="w-6 h-6" />
+        <BeeDecoration className="w-6 h-6" variant={2} />
       </div>
 
       <div className="max-w-md mx-auto">
         <div className="text-center mb-14">
-          <p
-            className="text-xs tracking-[0.25em] uppercase mb-3"
-            style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
-          >
-            Simple as
-          </p>
           <h2
             className="text-2xl md:text-3xl font-bold"
             style={{ fontFamily: "var(--font-bb-heading)", color: "var(--bb-navy)" }}
@@ -89,6 +83,24 @@ export function HowItWorks() {
             </div>
           ))}
         </div>
+
+        {/* Instagram follow CTA */}
+        <p
+          className="text-center mt-14 text-sm"
+          style={{ fontFamily: "var(--font-bb-body)", color: "var(--bb-text-muted)" }}
+        >
+          Follow{" "}
+          <a
+            href="https://instagram.com/bumblebreadclub"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 transition-colors hover:opacity-80"
+            style={{ color: "var(--bb-gold)" }}
+          >
+            @bumblebreadclub
+          </a>{" "}
+          for batch drops and behind-the-scenes
+        </p>
       </div>
     </section>
   )

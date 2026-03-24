@@ -25,7 +25,7 @@ export function FreshnessGuide() {
     <section className="relative px-6 py-20 md:py-28" style={{ backgroundColor: "var(--bb-cream-dark)" }}>
       {/* Decorative bee */}
       <div className="absolute top-10 left-8 md:left-20 opacity-40">
-        <BeeDecoration className="w-6 h-6" />
+        <BeeDecoration className="w-6 h-6" variant={3} />
       </div>
 
       <div className="max-w-lg mx-auto">

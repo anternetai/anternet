@@ -8,7 +8,7 @@ export function Footer() {
     >
       {/* Decorative bee */}
       <div className="absolute top-6 right-8 opacity-20">
-        <BeeDecoration className="w-5 h-5" />
+        <BeeDecoration className="w-5 h-5" variant={3} />
       </div>
 
       <div className="max-w-xl mx-auto">
@@ -34,7 +34,7 @@ export function Footer() {
 
         <div className="flex items-center justify-center gap-3 mt-6 mb-4">
           <span className="h-px w-6 opacity-20" style={{ backgroundColor: "var(--bb-cream)" }} />
-          <BeeDecoration className="w-4 h-4 opacity-30" />
+          <BeeDecoration className="w-4 h-4 opacity-30" variant={1} />
           <span className="h-px w-6 opacity-20" style={{ backgroundColor: "var(--bb-cream)" }} />
         </div>
 

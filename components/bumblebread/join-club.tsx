@@ -47,18 +47,10 @@ export function JoinClub() {
 
   return (
     <section className="relative px-6 py-20 md:py-28" style={{ backgroundColor: "var(--bb-cream-dark)" }}>
-      {/* Decorative bees */}
-      <div className="absolute top-12 left-6 md:left-16 opacity-40">
-        <BeeDecoration className="w-6 h-6" />
-      </div>
-      <div className="absolute bottom-16 right-10 md:right-24 opacity-30">
-        <BeeDecoration className="w-5 h-5" />
-      </div>
-
       <div className="max-w-md mx-auto text-center">
         <div className="flex items-center justify-center gap-3 mb-4">
           <span className="h-px w-8" style={{ backgroundColor: "var(--bb-gold)" }} />
-          <BeeDecoration className="w-5 h-5" />
+          <BeeDecoration className="w-5 h-5" variant={2} />
           <span className="h-px w-8" style={{ backgroundColor: "var(--bb-gold)" }} />
         </div>
 

@@ -62,10 +62,22 @@ export function BatchMenu() {
   }
 
   return (
-    <section id="batch" className="relative px-6 py-20 md:py-28">
-      {/* Decorative bee */}
-      <div className="absolute top-10 left-6 md:left-20 opacity-50">
-        <BeeDecoration className="w-6 h-6" />
+    <section id="batch" className="relative px-6 pt-10 pb-20 md:pb-28">
+      {/* Floating bee — top-right */}
+      <div className="absolute top-6 right-6 md:right-20">
+        <BeeDecoration className="w-8 h-8" variant={1} />
+      </div>
+
+      {/* Mascot peeking from right edge */}
+      <div className="absolute right-0 top-8 w-16 md:w-20 overflow-hidden opacity-70">
+        <Image
+          src="/bumblebread/mascot-peeking.webp"
+          alt=""
+          width={512}
+          height={512}
+          className="w-full h-auto"
+          aria-hidden="true"
+        />
       </div>
 
       <div className="max-w-lg mx-auto">
@@ -91,7 +103,7 @@ export function BatchMenu() {
           </p>
         </div>
 
-        {/* Loaf cards — each one gets its own breathing space */}
+        {/* Loaf cards */}
         <div className="space-y-8">
           {BATCH.loaves.map((loaf) => {
             const badge = statusBadge[loaf.status]

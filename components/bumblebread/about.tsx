@@ -4,19 +4,16 @@ import { BeeDecoration } from "./bee-decoration"
 export function About() {
   return (
     <section className="relative px-6 py-20 md:py-28">
-      {/* Decorative bees */}
+      {/* Decorative bee — top-right */}
       <div className="absolute top-16 right-6 md:right-16 opacity-50">
-        <BeeDecoration className="w-7 h-7" />
-      </div>
-      <div className="absolute bottom-20 left-8 md:left-20 opacity-30">
-        <BeeDecoration className="w-5 h-5" />
+        <BeeDecoration className="w-7 h-7" variant={2} />
       </div>
 
       <div className="max-w-lg mx-auto">
         <div className="text-center mb-10">
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="h-px w-8" style={{ backgroundColor: "var(--bb-gold)" }} />
-            <BeeDecoration className="w-5 h-5" />
+            <BeeDecoration className="w-5 h-5" variant={1} />
             <span className="h-px w-8" style={{ backgroundColor: "var(--bb-gold)" }} />
           </div>
           <h2
