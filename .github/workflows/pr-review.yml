@@ -57,16 +57,10 @@ jobs:
 
           PR DIFF:
           ${DIFF_CONTENT}" \
-            --output-format json \
             --max-turns 3 \
-            2>/dev/null > /tmp/review.json || echo '{"result":"Claude review encountered an error. Check ANTHROPIC_API_KEY secret and retry."}' > /tmp/review.json
+            2>/dev/null > /tmp/review.txt || echo 'Claude review encountered an error. Check ANTHROPIC_API_KEY secret and retry.' > /tmp/review.txt
 
-          # Validate JSON output
-          if ! python3 -c "import json,sys; json.load(open('/tmp/review.json'))" 2>/dev/null; then
-            echo '{"result":"Review output was not valid JSON. Raw output saved for inspection."}' > /tmp/review.json
-          fi
-
-          cp /tmp/review.json review.json
+          cp /tmp/review.txt review.txt
 
       - name: Post Review Comment
         uses: actions/github-script@v7
@@ -76,16 +70,10 @@ jobs:
             let reviewText = '';
 
             try {
-              const raw = fs.readFileSync('review.json', 'utf8');
-              const review = JSON.parse(raw);
-
-              // claude -p --output-format json returns { result: "..." }
-              reviewText = review.result
-                || review.message
-                || review.content
-                || JSON.stringify(review, null, 2);
+              reviewText = fs.readFileSync('review.txt', 'utf8').trim();
+              if (!reviewText) reviewText = 'Review output was empty. Check the workflow logs for details.';
             } catch (e) {
-              reviewText = 'Failed to parse review output. Check the workflow logs for details.';
+              reviewText = 'Failed to read review output. Check the workflow logs for details.';
             }
 
             const body = [

@@ -9,6 +9,7 @@ import { AdminKanban } from "@/components/portal/admin-kanban"
 import { AdminStatsBar } from "@/components/portal/admin-stats-bar"
 import { UpcomingSchedule } from "@/components/portal/upcoming-schedule"
 import { InviteClientDialog } from "@/components/portal/invite-client-dialog"
+import OnboardingTracker from "@/components/portal/admin/onboarding-tracker"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { AdminClientMetrics, ClientPipelineStage } from "@/lib/portal/types"
 
@@ -59,6 +60,27 @@ function AdminContent() {
           // Revert on failure
           mutate()
         } else {
+          // Trigger onboarding pipeline when a client is moved to "onboarding" stage
+          if (newStage === "onboarding") {
+            const client = clients?.find((c) => c.id === clientId)
+            if (client) {
+              const today = new Date().toISOString().split("T")[0]
+              const validTypes = ["roofing", "hvac", "plumbing", "landscaping", "general", "other"]
+              fetch("/api/onboarding/pipeline", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  client_name: client.legal_business_name,
+                  business_type: validTypes.includes(client.service_type ?? "") ? client.service_type : "other",
+                  location: "Unknown",
+                  contact_name: `${client.first_name} ${client.last_name}`.trim() || client.first_name,
+                  contact_email: client.email_for_notifications,
+                  contact_phone: client.business_phone || "Unknown",
+                  signed_date: today,
+                }),
+              }).catch((err) => console.error("Onboarding pipeline trigger failed:", err))
+            }
+          }
           // Revalidate to get fresh data
           mutate()
         }
@@ -115,6 +137,12 @@ function AdminContent() {
 
       {/* Upcoming schedule */}
       <UpcomingSchedule clients={clients} />
+
+      {/* Onboarding tracker — clients currently in the onboarding stage */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Onboarding</h2>
+        <OnboardingTracker />
+      </div>
     </div>
   )
 }

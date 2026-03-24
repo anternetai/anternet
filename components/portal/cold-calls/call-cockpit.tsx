@@ -61,6 +61,8 @@ import { LeadCreationModal, buildGCalUrl } from "./lead-creation-modal"
 import { LiveNotes } from "./live-notes"
 import { KeyboardShortcuts } from "./keyboard-shortcuts"
 import { AIAnalysisPanel } from "./ai-analysis-panel"
+import { ResearchBriefPanel } from "./research-brief"
+import { HookSelector } from "./hook-selector"
 import { useMixedAudioRecording } from "@/lib/dialer/use-mixed-audio-recording"
 import { useSessionRecording, type SessionRecordingState, type WebcamCorner, type WebcamSize } from "@/lib/dialer/use-session-recording"
 import type { WebcamPiPHandle } from "./webcam-pip"
@@ -699,6 +701,11 @@ export function CallCockpit() {
   const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null)
   const [pendingLead, setPendingLead] = useState<DialerLead | null>(null)
 
+  // Hook selection state — persists across a call, reset after disposition
+  const [selectedHookId, setSelectedHookId] = useState<string | null>(null)
+  const [selectedHookText, setSelectedHookText] = useState<string | null>(null)
+  const [showHookSelector, setShowHookSelector] = useState(false)
+
   const notesRef = useRef<HTMLTextAreaElement>(null)
   // Track current call state so disposition logic knows if a call is active
   const currentCallStateRef = useRef<CallState>("idle")
@@ -774,6 +781,9 @@ export function CallCockpit() {
     setQuickBookEmail("")
     setQuickBookDate("")
     setQuickBookSent(false)
+    // Reset hook selection for next call
+    setSelectedHookId(null)
+    setSelectedHookText(null)
   }, [])
 
   const submitDisposition = useCallback(
@@ -792,6 +802,24 @@ export function CallCockpit() {
       })
     },
     [queue?.selectedNumber?.id]
+  )
+
+  // Log the selected hook after a call ends — non-blocking, best-effort
+  const logHookUsage = useCallback(
+    (lead: DialerLead, outcome: ColdCallOutcome, hookId: string, hookText: string) => {
+      fetch("/api/cold-calls/log-hook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lead_id: lead.id,
+          hook_id: hookId,
+          hook_text: hookText,
+          outcome,
+          trade_vertical: null,
+        }),
+      }).catch((err) => console.warn("Hook log failed (non-critical):", err))
+    },
+    []
   )
 
   // Sync recording with call lifecycle
@@ -1096,6 +1124,11 @@ export function CallCockpit() {
         // This ensures the outcome is logged against the correct lead.
         await submitDisposition(leadSnap, outcome, notesSnap, demoDateSnap, demoEmailSnap)
 
+        // Log hook usage (non-blocking) — capture before resetForm clears state
+        if (selectedHookId && selectedHookText) {
+          logHookUsage(leadSnap, outcome, selectedHookId, selectedHookText)
+        }
+
         resetForm()
         resetRecording()
         callLeadRef.current = null
@@ -1146,6 +1179,9 @@ export function CallCockpit() {
       stopRecording,
       uploadAndAnalyze,
       submitDisposition,
+      selectedHookId,
+      selectedHookText,
+      logHookUsage,
     ]
   )
 
@@ -1184,6 +1220,11 @@ export function CallCockpit() {
         // Submit disposition with modal data
         await submitDisposition(leadSnap, outcome, data.notes, data.demoDate, data.email)
 
+        // Log hook usage (non-blocking) — capture before resetForm clears state
+        if (selectedHookId && selectedHookText) {
+          logHookUsage(leadSnap, outcome, selectedHookId, selectedHookText)
+        }
+
         // Close modal and reset
         setShowLeadModal(false)
         resetForm()
@@ -1213,7 +1254,7 @@ export function CallCockpit() {
         setSaving(false)
       }
     },
-    [currentLead, leadModalOutcome, isRecording, currentIndex, leads, mutate, resetForm, resetRecording, stopRecording, uploadAndAnalyze, submitDisposition]
+    [currentLead, leadModalOutcome, isRecording, currentIndex, leads, mutate, resetForm, resetRecording, stopRecording, uploadAndAnalyze, submitDisposition, selectedHookId, selectedHookText, logHookUsage]
   )
 
   const skipLead = useCallback(() => {
@@ -1812,9 +1853,9 @@ export function CallCockpit() {
           {dispositionBlock}
         </div>
 
-        {/* Main 2-column area */}
+        {/* Main 3-column area */}
         {!powerMode ? (
-          <div className="grid grid-cols-2 gap-3" style={{ minHeight: "calc(100vh - 420px)" }}>
+          <div className="grid grid-cols-[1fr_1fr_320px] gap-3" style={{ minHeight: "calc(100vh - 420px)" }}>
             {/* LEFT: Script Teleprompter */}
             <div className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
               <Suspense
@@ -1828,7 +1869,7 @@ export function CallCockpit() {
               </Suspense>
             </div>
 
-            {/* RIGHT: Objection Handler */}
+            {/* MIDDLE: Objection Handler */}
             <div className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
               <Suspense
                 fallback={
@@ -1839,6 +1880,45 @@ export function CallCockpit() {
               >
                 <ObjectionHandler />
               </Suspense>
+            </div>
+
+            {/* RIGHT: Research Brief + Hook Selector */}
+            <div className="flex flex-col gap-3 overflow-y-auto">
+              {/* Research Brief — shows intel for the current lead */}
+              <ResearchBriefPanel
+                leadId={currentLead?.id ?? null}
+                businessName={currentLead?.business_name}
+              />
+
+              {/* Hook Selector — collapsible */}
+              <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setShowHookSelector((v) => !v)}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted/50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Zap className="size-3.5 text-orange-400" />
+                    Hook Selector
+                    {selectedHookId && (
+                      <span className="inline-flex size-2 rounded-full bg-orange-500" />
+                    )}
+                  </span>
+                  {showHookSelector ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                </button>
+                {showHookSelector && (
+                  <div className="border-t">
+                    <HookSelector
+                      selectedHookId={selectedHookId}
+                      onSelect={(hookId, hookText) => {
+                        setSelectedHookId(hookId)
+                        setSelectedHookText(hookText)
+                      }}
+                      className="border-0 shadow-none rounded-none"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : (
@@ -1933,6 +2013,25 @@ export function CallCockpit() {
           <Suspense fallback={<Loader2 className="size-5 animate-spin" />}>
             <ObjectionHandler />
           </Suspense>
+        </MobileSection>
+
+        {/* Research Brief - collapsed */}
+        <MobileSection label="🔍 Research Brief" defaultOpen={false}>
+          <ResearchBriefPanel
+            leadId={currentLead?.id ?? null}
+            businessName={currentLead?.business_name}
+          />
+        </MobileSection>
+
+        {/* Hook Selector - collapsed */}
+        <MobileSection label="⚡ Hook Selector" defaultOpen={false}>
+          <HookSelector
+            selectedHookId={selectedHookId}
+            onSelect={(hookId, hookText) => {
+              setSelectedHookId(hookId)
+              setSelectedHookText(hookText)
+            }}
+          />
         </MobileSection>
 
         {/* Controls */}
