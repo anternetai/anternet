@@ -63,8 +63,8 @@ export function BatchMenu() {
 
   return (
     <section id="batch" className="relative px-6 pt-10 pb-20 md:pb-28">
-      {/* Floating bee — top-right */}
-      <div className="absolute top-6 right-6 md:right-20">
+      {/* Floating bee — near the wordmark */}
+      <div className="absolute -top-4 right-8 md:right-24">
         <BeeDecoration className="w-8 h-8" variant={1} />
       </div>
 

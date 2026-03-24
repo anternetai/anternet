@@ -18,12 +18,12 @@ export default function BumblebreadPage() {
 
       <FreshnessGuide />
 
-      {/* Mascot smelling bread before the About section */}
+      {/* Original mascot before the About section */}
       <MascotDivider
-        src="/bumblebread/mascot-smelling.webp"
-        alt="Bumblebread mascot enjoying the aroma of fresh bread"
-        width={848}
-        height={1264}
+        src="/bumblebread/mascot-og.webp"
+        alt="The Bumblebread Club mascot"
+        width={607}
+        height={879}
         position="center"
         className="-mb-8 mt-2"
       />

@@ -32,7 +32,7 @@ export function MascotDivider({
           alt={alt}
           width={width}
           height={height}
-          className="w-full h-auto drop-shadow-sm"
+          className="w-full h-auto"
           loading="lazy"
         />
       </div>
