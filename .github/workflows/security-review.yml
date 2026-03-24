@@ -1,0 +1,29 @@
+name: Security Review
+
+permissions:
+  pull-requests: write  # Required for posting findings as PR comments
+  contents: read
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - uses: anthropics/claude-code-security-review@main
+        with:
+          comment-pr: true
+          upload-results: true
+          claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Exclude generated/vendor directories from scanning
+          exclude-directories: "node_modules,.next,out,dist,.vercel"
+          # Default timeout is 20 minutes — keep it
+          claudecode-timeout: "20"
