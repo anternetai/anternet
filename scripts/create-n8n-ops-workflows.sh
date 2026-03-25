@@ -17,9 +17,9 @@
 # and add CRON_SECRET=<your_secret> to match your Vercel env var.
 # ─────────────────────────────────────────────────────────────────────────────
 
-N8N_URL="https://n8n-production-1286.up.railway.app"
-API_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2ZmIxMDI1Yy02MTljLTQ1ZDUtODI5Ny1mMjg0NGJjMWRjYTQiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZTlhZDJlM2ItMGQ5Zi00ZDQ5LTlhN2MtM2M3YmRkYzczODUxIiwiaWF0IjoxNzcwNzc1NTEwfQ.vAFdM7znLOuKPKnw9IRRagbIOU-oFyP1djT4QG2DxNk"
-APP_URL="https://homefieldhub.com"
+N8N_URL="${N8N_URL:-https://n8n-production-1286.up.railway.app}"
+API_KEY="${N8N_API_KEY:?ERROR: Set N8N_API_KEY env var before running this script}"
+APP_URL="${APP_URL:-https://homefieldhub.com}"
 
 echo "Checking n8n connectivity..."
 HEALTH=$(curl -s "$N8N_URL/healthz")
