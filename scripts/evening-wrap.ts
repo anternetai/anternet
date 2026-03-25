@@ -289,62 +289,26 @@ function detectAnomalies(
   return anomalies
 }
 
-function extractTopHooks(calls: CallHistory[]): TopHook[] {
-  /**
-   * "Hooks" are inferred from call notes — we look for opener/hook text patterns.
-   * Since there's no dedicated proven_hooks table, we derive top hooks from
-   * dialer_call_history notes by grouping on the first line of notes (the opener).
-   *
-   * Opener note format (from Cold Call Cockpit):
-   *   "[Mar 12, 9:30 AM] conversation: Hey John, quick question..."
-   *
-   * We extract the text after the disposition label to find hook patterns.
-   */
+async function fetchTopHooks(admin: ReturnType<typeof getAdmin>): Promise<TopHook[]> {
+  const { data: hooks, error } = await admin
+    .from("proven_hooks")
+    .select("hook_text, times_used, conversations, demos_booked, demo_rate")
+    .gte("times_used", 2)
+    .order("demo_rate", { ascending: false })
+    .limit(5)
 
-  const hookMap = new Map<
-    string,
-    { times_used: number; demos: number; conversations: number }
-  >()
-
-  for (const call of calls) {
-    if (!call.notes) continue
-
-    // Extract first note entry's text content
-    const match = call.notes.match(/\[.*?\]\s*(?:conversation|demo_booked):\s*(.+)/i)
-    if (!match) continue
-
-    const hookText = match[1].slice(0, 100).trim()
-    if (hookText.length < 10) continue
-
-    const existing = hookMap.get(hookText) || {
-      times_used: 0,
-      demos: 0,
-      conversations: 0,
-    }
-    existing.times_used++
-    if (call.outcome === "demo_booked") existing.demos++
-    if (["conversation", "demo_booked"].includes(call.outcome)) {
-      existing.conversations++
-    }
-    hookMap.set(hookText, existing)
+  if (error) {
+    console.warn("Could not fetch proven_hooks:", error.message)
+    return []
   }
 
-  const hooks: TopHook[] = Array.from(hookMap.entries())
-    .filter(([, stats]) => stats.times_used >= 2)
-    .map(([text, stats]) => ({
-      text,
-      times_used: stats.times_used,
-      demos: stats.demos,
-      conversations: stats.conversations,
-      demo_rate:
-        stats.times_used > 0
-          ? Math.round((stats.demos / stats.times_used) * 1000) / 10
-          : 0,
-    }))
-    .sort((a, b) => b.demo_rate - a.demo_rate || b.times_used - a.times_used)
-    .slice(0, 5)
-
-  return hooks
+  return (hooks ?? []).map((h: Record<string, unknown>) => ({
+    text: h.hook_text as string,
+    times_used: h.times_used as number,
+    demos: h.demos_booked as number,
+    conversations: h.conversations as number,
+    demo_rate: (h.demo_rate as number) ?? 0,
+  }))
 }
 
 // ─── Markdown Builder ─────────────────────────────────────────────────────────
@@ -459,16 +423,16 @@ export async function generateEveningWrap(): Promise<EveningWrapData> {
 
   console.log("[evening-wrap] Fetching data...")
 
-  const [todayCalls, sevenDayStats, tomorrowCallbacks] = await Promise.all([
+  const [todayCalls, sevenDayStats, tomorrowCallbacks, topHooks] = await Promise.all([
     fetchTodayCalls(admin),
     fetchSevenDayStats(admin),
     fetchTomorrowCallbacks(admin),
+    fetchTopHooks(admin),
   ])
 
   const callStats = computeCallStats(todayCalls)
   const sevenDayAvg = computeSevenDayAvg(sevenDayStats)
   const anomalies = detectAnomalies(callStats, sevenDayAvg)
-  const topHooks = extractTopHooks(todayCalls)
 
   const nowEt = new Date().toLocaleString("en-US", { timeZone: "America/New_York" })
   const reportDate = new Date(nowEt).toISOString().split("T")[0]
