@@ -29,6 +29,12 @@ export function FooterMarketing() {
               Terms
             </Link>
             <Link
+              href="/credentials"
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              Credentials
+            </Link>
+            <Link
               href="/call"
               className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
             >

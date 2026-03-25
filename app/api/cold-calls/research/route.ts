@@ -3,8 +3,8 @@
  *
  * Generates personalized pre-call research briefs for a list of dialer_lead IDs.
  * Each brief includes trade-specific pain points, personalization hooks, and a
- * suggested opener. No external calls — all generated from our own playbook data
- * so there's zero latency hit during a session.
+ * suggested opener. Optionally enriches each brief with live website data via
+ * Firecrawl when the lead has a `website` URL on record.
  *
  * Body: { lead_ids: string[] }
  * Returns: { briefs: ResearchBrief[] }
@@ -15,6 +15,14 @@ import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface WebsiteIntel {
+  services: string[]
+  team_info: string | null
+  reviews_summary: string | null
+  pricing_signals: string[]
+  recent_projects: string[]
+}
 
 export interface ResearchBrief {
   lead_id: string
@@ -28,6 +36,7 @@ export interface ResearchBrief {
   prior_call_count: number
   last_outcome: string | null
   last_called_at: string | null
+  website_intel?: WebsiteIntel
 }
 
 // ─── Trade Playbook ───────────────────────────────────────────────────────────
@@ -213,6 +222,164 @@ function getAdmin() {
   )
 }
 
+// ─── Firecrawl Scraping ───────────────────────────────────────────────────────
+
+const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY ?? ""
+const FIRECRAWL_TIMEOUT_MS = 5_000
+const SCRAPE_CONCURRENCY = 5
+
+interface FirecrawlResponse {
+  success: boolean
+  data?: {
+    markdown?: string
+  }
+}
+
+/** Scrape a single URL via Firecrawl. Returns markdown or null on failure/timeout. */
+async function scrapeUrl(url: string): Promise<string | null> {
+  if (!FIRECRAWL_API_KEY) return null
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FIRECRAWL_TIMEOUT_MS)
+
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+      },
+      body: JSON.stringify({ url, formats: ["markdown"] }),
+      signal: controller.signal,
+    })
+
+    if (!res.ok) return null
+
+    const json: FirecrawlResponse = await res.json()
+    return json?.data?.markdown ?? null
+  } catch {
+    // timeout (AbortError) or network error — degrade gracefully
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Extract website intelligence from scraped markdown. */
+function parseWebsiteIntel(markdown: string): WebsiteIntel {
+  const lines = markdown.split("\n").map((l) => l.trim()).filter(Boolean)
+
+  // ── Services ────────────────────────────────────────────────────────────
+  const serviceKeywords = [
+    "service", "offer", "speciali", "install", "repair", "replace",
+    "maintenance", "cleaning", "inspection", "estimate",
+  ]
+  const services: string[] = []
+  for (const line of lines) {
+    const lower = line.toLowerCase()
+    if (
+      serviceKeywords.some((kw) => lower.includes(kw)) &&
+      line.length < 120 &&
+      !line.startsWith("http")
+    ) {
+      services.push(line.replace(/^[#*\-•]+\s*/, "").trim())
+      if (services.length >= 8) break
+    }
+  }
+
+  // ── Team info ────────────────────────────────────────────────────────────
+  const teamKeywords = ["team", "about us", "our story", "founded", "owner", "staff", "employees", "years"]
+  let teamInfo: string | null = null
+  for (let i = 0; i < lines.length; i++) {
+    const lower = lines[i].toLowerCase()
+    if (teamKeywords.some((kw) => lower.includes(kw)) && lines[i].length > 30) {
+      // grab this line + up to 2 following sentences
+      const snippet = lines.slice(i, i + 3).join(" ").slice(0, 300)
+      teamInfo = snippet
+      break
+    }
+  }
+
+  // ── Reviews / testimonials ───────────────────────────────────────────────
+  const reviewKeywords = ["review", "testimonial", "rating", "star", "customer said", "client said", "5/5", "4."]
+  let reviewsSummary: string | null = null
+  for (const line of lines) {
+    const lower = line.toLowerCase()
+    if (reviewKeywords.some((kw) => lower.includes(kw)) && line.length > 20) {
+      reviewsSummary = line.replace(/^[#*\-•]+\s*/, "").trim().slice(0, 250)
+      break
+    }
+  }
+
+  // ── Pricing signals ──────────────────────────────────────────────────────
+  const pricingKeywords = ["price", "pricing", "cost", "free estimate", "free quote", "starting at", "$", "per"]
+  const pricingSignals: string[] = []
+  for (const line of lines) {
+    const lower = line.toLowerCase()
+    if (
+      pricingKeywords.some((kw) => lower.includes(kw)) &&
+      line.length < 150 &&
+      !line.startsWith("http")
+    ) {
+      pricingSignals.push(line.replace(/^[#*\-•]+\s*/, "").trim())
+      if (pricingSignals.length >= 4) break
+    }
+  }
+
+  // ── Recent projects / portfolio ──────────────────────────────────────────
+  const projectKeywords = ["project", "portfolio", "gallery", "before", "after", "completed", "recent", "case study"]
+  const recentProjects: string[] = []
+  for (const line of lines) {
+    const lower = line.toLowerCase()
+    if (
+      projectKeywords.some((kw) => lower.includes(kw)) &&
+      line.length > 15 &&
+      line.length < 200 &&
+      !line.startsWith("http")
+    ) {
+      recentProjects.push(line.replace(/^[#*\-•]+\s*/, "").trim())
+      if (recentProjects.length >= 4) break
+    }
+  }
+
+  return {
+    services,
+    team_info: teamInfo,
+    reviews_summary: reviewsSummary,
+    pricing_signals: pricingSignals,
+    recent_projects: recentProjects,
+  }
+}
+
+/** Scrape a batch of { lead_id, url } pairs with a concurrency cap. */
+async function scrapeLeadsWithConcurrency(
+  batch: Array<{ lead_id: string; url: string }>
+): Promise<Map<string, WebsiteIntel>> {
+  const results = new Map<string, WebsiteIntel>()
+  if (batch.length === 0) return results
+
+  // Process in chunks of SCRAPE_CONCURRENCY
+  for (let i = 0; i < batch.length; i += SCRAPE_CONCURRENCY) {
+    const chunk = batch.slice(i, i + SCRAPE_CONCURRENCY)
+    const settled = await Promise.allSettled(
+      chunk.map(async ({ lead_id, url }) => {
+        const markdown = await scrapeUrl(url)
+        if (markdown) {
+          results.set(lead_id, parseWebsiteIntel(markdown))
+        }
+      })
+    )
+    // Log any unexpected rejections (should not happen since scrapeUrl catches)
+    for (const s of settled) {
+      if (s.status === "rejected") {
+        console.warn("[research] scrape chunk error:", s.reason)
+      }
+    }
+  }
+
+  return results
+}
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -241,7 +408,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // ── Fetch leads ───────────────────────────────────────────────────────────
   const { data: leads, error: leadsErr } = await admin
     .from("dialer_leads")
-    .select("id, business_name, owner_name, phone_number, state, last_outcome, last_called_at, attempt_count, notes")
+    .select("id, business_name, owner_name, phone_number, state, last_outcome, last_called_at, attempt_count, notes, website")
     .in("id", ids)
 
   if (leadsErr) {
@@ -261,6 +428,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     priorCallMap[row.lead_id] = (priorCallMap[row.lead_id] ?? 0) + 1
   }
 
+  // ── Scrape websites in parallel (graceful degradation) ───────────────────
+  const scrapeBatch = (leads ?? [])
+    .filter((l) => typeof l.website === "string" && l.website.startsWith("http"))
+    .map((l) => ({ lead_id: l.id as string, url: l.website as string }))
+
+  let websiteIntelMap = new Map<string, WebsiteIntel>()
+  if (scrapeBatch.length > 0) {
+    try {
+      websiteIntelMap = await scrapeLeadsWithConcurrency(scrapeBatch)
+    } catch (err) {
+      // Non-fatal — briefs will just omit website_intel
+      console.error("[research] scraping batch failed:", err)
+    }
+  }
+
   // ── Build briefs ──────────────────────────────────────────────────────────
   const briefs: ResearchBrief[] = (leads ?? []).map((lead) => {
     // Derive trade from notes or business_name heuristics
@@ -273,7 +455,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const location = lead.state ? lead.state : null
 
-    return {
+    const brief: ResearchBrief = {
       lead_id: lead.id,
       business_name: lead.business_name,
       trade: inferredTrade === "default" ? null : inferredTrade,
@@ -286,6 +468,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       last_outcome: lead.last_outcome,
       last_called_at: lead.last_called_at,
     }
+
+    const intel = websiteIntelMap.get(lead.id)
+    if (intel) {
+      brief.website_intel = intel
+    }
+
+    return brief
   })
 
   return NextResponse.json({ briefs })
