@@ -398,6 +398,60 @@ export function DialerStats() {
         />
       </div>
 
+      {/* Funnel efficiency strip */}
+      {period.dials > 0 && (
+        <Card className="bg-card border-orange-500/10">
+          <CardContent className="py-3 px-4">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+                Funnel
+              </p>
+              {/* Dials per demo headline */}
+              <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2.5 py-1">
+                <span className="text-sm font-bold tabular-nums text-orange-400">
+                  {period.demos > 0
+                    ? `${Math.round(period.dials / period.demos)} dials / demo`
+                    : `${period.dials.toLocaleString()} dials — 0 demos`}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground/50 hidden sm:block">·</span>
+              {/* Stage-by-stage conversion chain */}
+              <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                <span className="tabular-nums font-medium text-foreground">{period.dials.toLocaleString()}</span>
+                <span>dials</span>
+                <span className="text-muted-foreground/40">→</span>
+                <span className="tabular-nums font-medium text-blue-400">{period.contacts.toLocaleString()}</span>
+                <span>contacts</span>
+                <span className="text-muted-foreground/40 text-[10px]">
+                  ({period.dials > 0 ? `${((period.contacts / period.dials) * 100).toFixed(1)}%` : "—"})
+                </span>
+                <span className="text-muted-foreground/40">→</span>
+                <span className="tabular-nums font-medium text-amber-400">{period.conversations.toLocaleString()}</span>
+                <span>convos</span>
+                <span className="text-muted-foreground/40 text-[10px]">
+                  ({period.contacts > 0 ? `${((period.conversations / period.contacts) * 100).toFixed(1)}%` : "—"})
+                </span>
+                <span className="text-muted-foreground/40">→</span>
+                <span className="tabular-nums font-medium text-emerald-400">{period.demos.toLocaleString()}</span>
+                <span>demos</span>
+                <span className="text-muted-foreground/40 text-[10px]">
+                  ({period.conversations > 0 ? `${((period.demos / period.conversations) * 100).toFixed(1)}%` : "—"})
+                </span>
+              </div>
+              {/* End-to-end dial→demo rate */}
+              {period.demos > 0 && (
+                <>
+                  <span className="text-muted-foreground/40 hidden sm:block">·</span>
+                  <span className="text-[11px] text-emerald-400 font-semibold tabular-nums">
+                    {((period.demos / period.dials) * 100).toFixed(2)}% dial→demo
+                  </span>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Daily area chart */}
       <Card className="bg-card">
         <CardHeader className="pb-2">
