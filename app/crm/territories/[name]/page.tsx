@@ -395,6 +395,19 @@ export default function CrmTerritoryDetailPage({
         </div>
       )}
 
+      {/* Map Legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground px-1">
+        <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: "#9ca3af" }} />Not Home</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: "#60a5fa" }} />Talked</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: "#f59e0b" }} />Pitched</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: "#22c55e" }} />Closed</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: "#ef4444" }} />Not Interested</span>
+        <span className="text-muted-foreground/60">|</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: "#ffffff", background: "transparent" }} />1st knock</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: "#38bdf8", background: "transparent" }} />2nd knock</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: "#a855f7", background: "transparent" }} />3+ knocks</span>
+      </div>
+
       {/* Map */}
       <div className="relative">
         <TerritoryMap

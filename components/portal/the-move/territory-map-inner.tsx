@@ -8,25 +8,26 @@ import type { TerritoryDoor } from "@/lib/the-move/types"
 
 const CHARLOTTE = { lat: 35.2271, lng: -80.8431 }
 
-// Pin fill color based on visit count
-function visitCountColor(count: number): string {
-  if (count >= 4) return "#22c55e" // green
-  if (count === 3) return "#f59e0b" // amber
-  if (count === 2) return "#60a5fa" // blue
-  return "#9ca3af" // gray
+// Pin fill color based on status — the primary visual distinction
+function statusFillColor(status: string): string {
+  if (status === "closed") return "#22c55e"           // green — sold
+  if (status === "not_interested") return "#ef4444"    // red — dead lead
+  if (status === "pitched") return "#f59e0b"           // amber — pitched but no close
+  if (status === "talked") return "#60a5fa"            // blue — answered/talked
+  return "#9ca3af"                                     // gray — not home
 }
 
-// Ring color based on status
-function statusRingColor(status: string): string {
-  if (status === "closed") return "#22c55e"
-  if (status === "not_interested") return "#ef4444"
-  return "#ffffff"
+// Ring color for revisit count emphasis
+function visitRingColor(count: number): string {
+  if (count >= 3) return "#a855f7" // purple — knocked 3+ times
+  if (count === 2) return "#38bdf8" // sky — knocked twice
+  return "#ffffff"                  // white — first visit
 }
 
 function createDoorIcon(door: TerritoryDoor) {
-  const fill = visitCountColor(door.total_visits)
-  const ring = statusRingColor(door.status)
-  const ringWidth = door.status === "closed" || door.status === "not_interested" ? 4 : 3
+  const fill = statusFillColor(door.status)
+  const ring = visitRingColor(door.total_visits)
+  const ringWidth = door.total_visits >= 2 ? 4 : 3
   return L.divIcon({
     className: "",
     html: `<div style="width:26px;height:26px;border-radius:50%;background:${fill};border:${ringWidth}px solid ${ring};box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>`,
