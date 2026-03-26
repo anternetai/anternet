@@ -1369,6 +1369,13 @@ export function CallCockpit() {
         <span className="text-sm text-muted-foreground">No lead selected</span>
       )}
 
+      {/* Queue position indicator */}
+      {leads.length > 0 && (
+        <Badge variant="outline" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" title={`Lead ${currentIndex + 1} of ${leads.length} in queue`}>
+          #{currentIndex + 1}&nbsp;/&nbsp;{leads.length}
+        </Badge>
+      )}
+
       {/* Spacer */}
       <div className="flex-1" />
 
