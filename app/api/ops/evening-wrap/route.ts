@@ -10,6 +10,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { isAuthorized } from "@/lib/ops/cron-auth"
 
 const DAILY_OPS_CHANNEL = "C0AHU0LBSSJ"
 
@@ -473,16 +474,25 @@ async function postToSlack(blocks: SlackBlock[], fallbackText: string) {
   return result
 }
 
-// ─── Route Handler ─────────────────────────────────────────────────────────────
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET
-  const incomingSecret = req.headers.get("x-cron-secret")
+// ─── Route Handlers ───────────────────────────────────────────────────────────
 
-  if (!cronSecret || incomingSecret !== cronSecret) {
+export async function GET(req: NextRequest) {
+  if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  return runEveningWrap()
+}
 
+export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  return runEveningWrap()
+}
+
+async function runEveningWrap() {
   try {
     console.log("[api/ops/evening-wrap] Generating evening wrap...")
     const data = await generateEveningWrap()

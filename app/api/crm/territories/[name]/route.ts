@@ -67,6 +67,18 @@ function buildRecommendations(kpis: ReturnType<typeof computeDetailedKpis>): Rec
   const recs: Recommendation[] = []
   const { contact_rate, pitch_rate, close_rate, avg_revenue_per_door, total_doors } = kpis
 
+  // Need at least 10 doors before insights are meaningful
+  if (total_doors < 10) {
+    if (total_doors > 0) {
+      recs.push({
+        type: "info",
+        title: "Keep Knocking",
+        message: `${total_doors} door${total_doors !== 1 ? "s" : ""} logged so far. Hit 10+ for meaningful insights.`,
+      })
+    }
+    return recs
+  }
+
   if (contact_rate < 0.15) {
     recs.push({
       type: "warning",

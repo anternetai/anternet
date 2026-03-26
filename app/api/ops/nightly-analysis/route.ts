@@ -11,6 +11,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { isAuthorized } from "@/lib/ops/cron-auth"
 
 const DAILY_OPS_CHANNEL = "C0AHU0LBSSJ"
 
@@ -293,28 +294,38 @@ async function postToSlack(data: NightlyAnalysisResult) {
   return result
 }
 
-// ─── Route Handler ─────────────────────────────────────────────────────────────
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+// ─── Route Handlers ───────────────────────────────────────────────────────────
+
+export async function GET(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  return runHandler()
+}
 
 export async function POST(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET
-  const incomingSecret = req.headers.get("x-cron-secret")
-
-  if (!cronSecret || incomingSecret !== cronSecret) {
+  if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // Allow optional date override in body (for manual reruns)
+  let targetDate: string | undefined
   try {
-    // Allow optional date override in body (for manual reruns)
-    let targetDate: string | undefined
-    try {
-      const body = await req.json()
-      if (body?.date && typeof body.date === "string") {
-        targetDate = body.date
-      }
-    } catch {
-      // no body or invalid JSON — use today
+    const body = await req.json()
+    if (body?.date && typeof body.date === "string") {
+      targetDate = body.date
     }
+  } catch {
+    // no body or invalid JSON — use today
+  }
 
+  return runHandler(targetDate)
+}
+
+async function runHandler(targetDate?: string) {
+  try {
     console.log("[api/ops/nightly-analysis] Starting nightly analysis...")
     const data = await runNightlyAnalysis(targetDate)
 

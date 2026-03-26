@@ -10,17 +10,24 @@
  */
 
 import { generateMorningBrief } from "@/lib/ops/morning-brief-data"
+import { isAuthorized } from "@/lib/ops/cron-auth"
 import { NextRequest, NextResponse } from "next/server"
 
-export async function POST(req: NextRequest) {
-  // Auth check
-  const cronSecret = process.env.CRON_SECRET
-  const incomingSecret = req.headers.get("x-cron-secret")
-
-  if (!cronSecret || incomingSecret !== cronSecret) {
+export async function GET(req: NextRequest) {
+  if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  return runMorningBrief()
+}
 
+export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  return runMorningBrief()
+}
+
+async function runMorningBrief() {
   try {
     console.log("[api/ops/morning-brief] Starting morning brief generation...")
     const data = await generateMorningBrief()
