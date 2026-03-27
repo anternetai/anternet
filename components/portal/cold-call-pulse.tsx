@@ -55,6 +55,19 @@ function useOverdueCount(data: CallbackData | undefined): number {
   }).length
 }
 
+function useTodayCallbackCount(data: CallbackData | undefined): number {
+  if (!data?.leads) return 0
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setDate(todayStart.getDate() + 1)
+  return data.leads.filter((l) => {
+    if (!l.next_call_at) return false
+    const t = new Date(l.next_call_at)
+    return t >= now && t >= todayStart && t < tomorrowStart
+  }).length
+}
+
 // ─── Stat pill ─────────────────────────────────────────────────────────────────
 
 function StatPill({
@@ -95,6 +108,7 @@ export function ColdCallPulse() {
   )
 
   const overdueCount = useOverdueCount(callbacks)
+  const todayCallbackCount = useTodayCallbackCount(callbacks)
   const isLoading = statsLoading || callbacksLoading
 
   const todayDials = stats?.today?.dials ?? 0
@@ -154,6 +168,20 @@ export function ColdCallPulse() {
               {overdueCount} overdue callback{overdueCount !== 1 ? "s" : ""} need attention
             </span>
             <ArrowRight className="h-3 w-3 text-amber-500 ml-auto" />
+          </button>
+        )}
+
+        {/* Today's scheduled callbacks (non-overdue) */}
+        {todayCallbackCount > 0 && (
+          <button
+            onClick={goToPipeline}
+            className="w-full flex items-center gap-2 px-4 py-2 bg-blue-500/8 border-b border-blue-500/15 hover:bg-blue-500/12 transition-colors text-left"
+          >
+            <Phone className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+              {todayCallbackCount} callback{todayCallbackCount !== 1 ? "s" : ""} scheduled for today
+            </span>
+            <ArrowRight className="h-3 w-3 text-blue-400 ml-auto" />
           </button>
         )}
 
