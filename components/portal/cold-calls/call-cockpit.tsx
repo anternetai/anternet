@@ -63,7 +63,9 @@ import { KeyboardShortcuts } from "./keyboard-shortcuts"
 import { AIAnalysisPanel } from "./ai-analysis-panel"
 import { ResearchBriefPanel } from "./research-brief"
 import { HookSelector } from "./hook-selector"
+import { LiveCoachPanel } from "./live-coach-panel"
 import { useMixedAudioRecording } from "@/lib/dialer/use-mixed-audio-recording"
+import { useGeminiLiveCoach } from "@/lib/dialer/use-gemini-live-coach"
 import { useSessionRecording, type SessionRecordingState, type WebcamCorner, type WebcamSize } from "@/lib/dialer/use-session-recording"
 import type { WebcamPiPHandle } from "./webcam-pip"
 
@@ -709,6 +711,8 @@ export function CallCockpit() {
   const notesRef = useRef<HTMLTextAreaElement>(null)
   // Track current call state so disposition logic knows if a call is active
   const currentCallStateRef = useRef<CallState>("idle")
+  // Reactive call state for hooks that need re-renders (e.g., Gemini Live Coach)
+  const [reactiveCallState, setReactiveCallState] = useState<CallState>("idle")
   // Expose PowerDialer's hangUp so we can end calls when logging disposition
   const hangUpRef = useRef<(() => void) | null>(null)
   const sessionTime = useSessionTimer()
@@ -768,6 +772,27 @@ export function CallCockpit() {
   const currentLead = leads[currentIndex] ?? null
   const totalInQueue = queue?.totalToday || 0
 
+  // ── Gemini Live Coach ──────────────────────────────────────────────────────
+  const {
+    messages: coachMessages,
+    isConnected: coachConnected,
+    isEnabled: coachEnabled,
+    latency: coachLatency,
+    error: coachError,
+    sessionSummary: coachSummary,
+    enable: enableCoach,
+    disable: disableCoach,
+  } = useGeminiLiveCoach({
+    localStreamRef,
+    remoteStreamRef,
+    callState: reactiveCallState,
+    leadInfo: currentLead ? {
+      businessName: currentLead.business_name,
+      ownerName: currentLead.owner_name,
+      state: currentLead.state,
+    } : undefined,
+  })
+
   const resetForm = useCallback(() => {
     setNotes("")
     setDemoDate("")
@@ -826,6 +851,7 @@ export function CallCockpit() {
   const handleCallStateChange = useCallback(
     async (state: CallState) => {
       currentCallStateRef.current = state
+      setReactiveCallState(state)
       if (state === "connecting") {
         // Start recording when we begin dialing
         lastCallBlobRef.current = null
@@ -1889,8 +1915,20 @@ export function CallCockpit() {
               </Suspense>
             </div>
 
-            {/* RIGHT: Research Brief + Hook Selector */}
+            {/* RIGHT: Live Coach + Research Brief + Hook Selector */}
             <div className="flex flex-col gap-3 overflow-y-auto">
+              {/* Live Coach — real-time AI coaching during calls */}
+              <LiveCoachPanel
+                messages={coachMessages}
+                isConnected={coachConnected}
+                isEnabled={coachEnabled}
+                latency={coachLatency}
+                error={coachError}
+                sessionSummary={coachSummary}
+                onEnable={enableCoach}
+                onDisable={disableCoach}
+              />
+
               {/* Research Brief — shows intel for the current lead */}
               <ResearchBriefPanel
                 leadId={currentLead?.id ?? null}
@@ -2020,6 +2058,20 @@ export function CallCockpit() {
           <Suspense fallback={<Loader2 className="size-5 animate-spin" />}>
             <ObjectionHandler />
           </Suspense>
+        </MobileSection>
+
+        {/* Live Coach - open by default on mobile */}
+        <MobileSection label="🧠 Live Coach" defaultOpen={true}>
+          <LiveCoachPanel
+            messages={coachMessages}
+            isConnected={coachConnected}
+            isEnabled={coachEnabled}
+            latency={coachLatency}
+            error={coachError}
+            sessionSummary={coachSummary}
+            onEnable={enableCoach}
+            onDisable={disableCoach}
+          />
         </MobileSection>
 
         {/* Research Brief - collapsed */}
