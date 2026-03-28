@@ -48,12 +48,21 @@ export const metadata: Metadata = {
     url: "https://homefieldhub.com",
     siteName: "HomeField Hub",
     type: "website",
+    images: [
+      {
+        url: "https://homefieldhub.com/screenshot.png",
+        width: 1606,
+        height: 828,
+        alt: "HomeField Hub — AI Lead Generation for Home Service Contractors",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "HomeField Hub | AI Lead Generation for Home Service Contractors",
     description:
       "Performance-based lead generation for roofing and remodeling contractors. Pay $200 per showed appointment.",
+    images: ["https://homefieldhub.com/screenshot.png"],
   },
   robots: {
     index: true,
