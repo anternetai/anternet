@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/ops/post-morning-brief",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/ops/evening-wrap",
+      "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/ops/nightly-analysis",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
