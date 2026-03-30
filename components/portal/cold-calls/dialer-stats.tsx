@@ -10,6 +10,7 @@ import {
   TrendingUp,
   RefreshCw,
   PhoneCall,
+  Clock,
 } from "lucide-react"
 import {
   Area,
@@ -63,6 +64,14 @@ interface PeriodStats {
   days: number
 }
 
+interface HourlyRow {
+  hour: number
+  dials: number
+  contacts: number
+  demos: number
+  contactRate: number
+}
+
 interface StatsData {
   today: {
     dials: number
@@ -74,6 +83,7 @@ interface StatsData {
   dailyBreakdown: DailyRow[]
   outcomeBreakdown: OutcomeRow[]
   leadStatusSummary: StatusRow[]
+  hourlyBreakdown: HourlyRow[]
   rates: {
     contactRate: number
     conversationRate: number
@@ -105,6 +115,73 @@ const STATUS_COLORS: Record<string, string> = {
 // ─── Revenue per showed appointment ───────────────────────────────────────────
 
 const REVENUE_PER_DEMO = 200 // $200 per showed appointment
+
+// ─── Hourly heatmap helpers ────────────────────────────────────────────────────
+
+/** Format UTC hour (0-23) as "9 AM", "1 PM", etc. (ET offset = UTC-4 during daylight saving) */
+function fmtHourET(utcHour: number): string {
+  // ET = UTC-4 (EDT) — close enough for a label; not critical for this display
+  const etHour = ((utcHour - 4) + 24) % 24
+  if (etHour === 0) return "12 AM"
+  if (etHour === 12) return "12 PM"
+  return etHour < 12 ? `${etHour} AM` : `${etHour - 12} PM`
+}
+
+function contactRateColor(rate: number): string {
+  if (rate === 0) return "bg-muted/40 text-muted-foreground/30"
+  if (rate < 5)   return "bg-blue-900/30 text-blue-400/60"
+  if (rate < 15)  return "bg-blue-700/40 text-blue-300"
+  if (rate < 25)  return "bg-emerald-700/40 text-emerald-300"
+  return "bg-emerald-500/60 text-emerald-100 font-semibold"
+}
+
+function HourlyHeatStrip({ rows }: { rows: HourlyRow[] }) {
+  if (!rows.length) {
+    return (
+      <div className="flex h-16 items-center justify-center text-xs text-muted-foreground">
+        No call-time data yet — start dialing to see your best hours.
+      </div>
+    )
+  }
+
+  const maxRate = Math.max(...rows.map((r) => r.contactRate), 1)
+  const best = rows.reduce((a, b) => (a.contactRate >= b.contactRate ? a : b))
+
+  return (
+    <div className="space-y-2">
+      {/* Legend + best hour callout */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">{fmtHourET(best.hour)}</span>
+        <span>is your best hour</span>
+        <span className="text-emerald-400 font-semibold">{best.contactRate.toFixed(0)}% contact rate</span>
+        <span className="ml-auto hidden sm:block opacity-50">darker = higher contact rate</span>
+      </div>
+      {/* Heat cells */}
+      <div className="flex flex-wrap gap-1">
+        {rows.map((row) => {
+          const intensity = row.dials === 0 ? 0 : row.contactRate / maxRate
+          return (
+            <div
+              key={row.hour}
+              title={`${fmtHourET(row.hour)} · ${row.dials} dials · ${row.contacts} contacts · ${row.contactRate.toFixed(1)}% rate`}
+              className={cn(
+                "flex flex-col items-center justify-center rounded px-1.5 py-1 min-w-[3rem] transition-colors",
+                contactRateColor(row.contactRate),
+              )}
+              style={{ opacity: row.dials === 0 ? 0.35 : 0.5 + intensity * 0.5 }}
+            >
+              <span className="text-[10px] leading-none">{fmtHourET(row.hour)}</span>
+              <span className="text-xs font-bold leading-none mt-0.5 tabular-nums">
+                {row.contactRate.toFixed(0)}%
+              </span>
+              <span className="text-[9px] leading-none opacity-60 tabular-nums">{row.dials}d</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 // ─── KPI Card ──────────────────────────────────────────────────────────────────
 
@@ -275,6 +352,7 @@ export function DialerStats() {
 
   const period = data?.period ?? { dials: 0, contacts: 0, conversations: 0, demos: 0, days: 30 }
   const rates = data?.rates ?? { contactRate: 0, conversationRate: 0, demoRate: 0 }
+  const hourlyBreakdown = data?.hourlyBreakdown ?? []
 
   if (isLoading) return <StatsSkeleton />
 
@@ -451,6 +529,19 @@ export function DialerStats() {
           </CardContent>
         </Card>
       )}
+
+      {/* Best hours heat strip */}
+      <Card className="bg-card border-blue-500/10">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Clock className="size-4" />
+            Best Hours to Call — Contact Rate by Hour (ET)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <HourlyHeatStrip rows={hourlyBreakdown} />
+        </CardContent>
+      </Card>
 
       {/* Daily area chart */}
       <Card className="bg-card">

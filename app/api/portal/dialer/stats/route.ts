@@ -40,6 +40,14 @@ interface ConversionRates {
   demoRate: number
 }
 
+interface HourlyRow {
+  hour: number        // 0-23 (UTC hour stored in DB, converted to ET on client)
+  dials: number
+  contacts: number    // conversation + demo_booked outcomes
+  demos: number
+  contactRate: number // contacts / dials, 0-100
+}
+
 // GET /api/portal/dialer/stats - aggregated cold call KPIs
 export async function GET(req: NextRequest) {
   const auth = await createServerClient()
@@ -71,6 +79,7 @@ export async function GET(req: NextRequest) {
     periodStatsResult,
     outcomeResult,
     leadStatusResult,
+    hourlyResult,
   ] = await Promise.all([
     // Today's stats from daily_call_stats
     admin
@@ -98,6 +107,14 @@ export async function GET(req: NextRequest) {
     admin
       .from("dialer_leads")
       .select("status"),
+
+    // Hourly breakdown — call_time stored as TIME, extract hour
+    admin
+      .from("dialer_call_history")
+      .select("call_time, outcome")
+      .not("call_time", "is", null)
+      .gte("call_date", historyDateStart)
+      .lte("call_date", historyDateEnd),
   ])
 
   // --- Today ---
@@ -152,8 +169,45 @@ export async function GET(req: NextRequest) {
     .map(([status, count]) => ({ status, count }))
     .sort((a, b) => b.count - a.count)
 
+  // --- Hourly breakdown ---
+  // Outcomes we count as "contact" (owner answered + pitched)
+  const CONTACT_OUTCOMES = new Set(["conversation", "demo_booked", "owner_no_pitch", "owner_pitched"])
+  const hourlyDialCounts: Record<number, number> = {}
+  const hourlyContactCounts: Record<number, number> = {}
+  const hourlyDemoCounts: Record<number, number> = {}
+
+  for (const row of hourlyResult.data || []) {
+    if (!row.call_time) continue
+    // call_time is "HH:MM:SS" string
+    const hour = parseInt((row.call_time as string).split(":")[0], 10)
+    if (isNaN(hour)) continue
+    hourlyDialCounts[hour] = (hourlyDialCounts[hour] || 0) + 1
+    if (CONTACT_OUTCOMES.has(row.outcome)) {
+      hourlyContactCounts[hour] = (hourlyContactCounts[hour] || 0) + 1
+    }
+    if (row.outcome === "demo_booked") {
+      hourlyDemoCounts[hour] = (hourlyDemoCounts[hour] || 0) + 1
+    }
+  }
+
+  const safe = (n: number, d: number) => (d === 0 ? 0 : Math.round((n / d) * 10000) / 100)
+
+  const hourlyBreakdown: HourlyRow[] = Object.entries(hourlyDialCounts)
+    .map(([h, dials]) => {
+      const hour = parseInt(h, 10)
+      const contacts = hourlyContactCounts[hour] || 0
+      const demos = hourlyDemoCounts[hour] || 0
+      return {
+        hour,
+        dials,
+        contacts,
+        demos,
+        contactRate: safe(contacts, dials),
+      }
+    })
+    .sort((a, b) => a.hour - b.hour)
+
   // --- Conversion rates (safe division) ---
-  const safe = (n: number, d: number) => (d === 0 ? 0 : Math.round((n / d) * 10000) / 100) // percentage, 2 decimals
   const rates: ConversionRates = {
     contactRate: safe(periodTotals.contacts, periodTotals.dials),
     conversationRate: safe(periodTotals.conversations, periodTotals.contacts),
@@ -167,5 +221,6 @@ export async function GET(req: NextRequest) {
     outcomeBreakdown,
     leadStatusSummary,
     rates,
+    hourlyBreakdown,
   })
 }
