@@ -10,6 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticUrls: MetadataRoute.Sitemap = [
     { url: "https://homefieldhub.com", lastModified: new Date(), changeFrequency: "monthly", priority: 1.0 },
     { url: "https://homefieldhub.com/blog", lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: "https://homefieldhub.com/llms.txt", lastModified: new Date(), changeFrequency: "monthly", priority: 0.2 },
   ]
 
   try {
