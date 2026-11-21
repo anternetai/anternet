@@ -376,6 +376,12 @@ export function DialerStats() {
     return row?.count ?? 0
   }, [data?.leadStatusSummary])
 
+  // Callbacks *set* in the viewed period (from outcome breakdown, date-filtered)
+  const callbackOutcomeCount = useMemo(() => {
+    const row = data?.outcomeBreakdown?.find((r) => r.outcome === "callback")
+    return row?.count ?? 0
+  }, [data?.outcomeBreakdown])
+
   return (
     <div className="space-y-4 pt-2">
       {/* Today's live stats strip */}
@@ -515,6 +521,17 @@ export function DialerStats() {
                 <span className="text-muted-foreground/40 text-[10px]">
                   ({period.conversations > 0 ? `${((period.demos / period.conversations) * 100).toFixed(1)}%` : "—"})
                 </span>
+                {/* Callbacks set in this period — warm leads parked for follow-up */}
+                {callbackOutcomeCount > 0 && (
+                  <>
+                    <span className="text-muted-foreground/40 mx-0.5">·</span>
+                    <span className="tabular-nums font-medium text-amber-400">{callbackOutcomeCount.toLocaleString()}</span>
+                    <span>callbacks set</span>
+                    <span className="text-muted-foreground/40 text-[10px]">
+                      ({period.dials > 0 ? `${((callbackOutcomeCount / period.dials) * 100).toFixed(1)}% of dials` : "—"})
+                    </span>
+                  </>
+                )}
               </div>
               {/* End-to-end dial→demo rate */}
               {period.demos > 0 && (
